@@ -1,32 +1,18 @@
-# Backend Dockerfile (FastAPI + Uvicorn)
-# Uso: docker build -t cryptovision-api .
-#      docker run --rm -p 8000:8000 --env ENABLE_BACKGROUND_SERVICE=0 cryptovision-api
+FROM python:3.10-slim
 
-FROM python:3.11-slim
-
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+# Instalar dependências de sistema (necessárias para o scikit-learn e pandas em ambientes linux enxutos)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Instalar dependências do sistema (para wheels nativos e SSL)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# Instalar pacotes Python
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-COPY requirements.txt ./
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
-
+# Copiar o restante da aplicação
 COPY . .
 
-# Em produção, o loop de background fica desabilitado; rode o worker separadamente se desejar
-ENV ENABLE_BACKGROUND_SERVICE=0 \
-    BACKGROUND_INTERVAL=30 \
-    ALLOW_ORIGINS=*
-
-EXPOSE 8000
-
-CMD ["uvicorn", "api.app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
-
+# Comando padrão
+CMD ["python", "worker_service.py"]

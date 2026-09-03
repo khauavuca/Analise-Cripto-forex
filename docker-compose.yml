@@ -1,60 +1,21 @@
-version: "3.9"
+version: '3.8'
 
 services:
-  api:
-    build:
-      context: .
-      dockerfile: Dockerfile
+  backend-worker:
+    build: .
+    container_name: worker_cripto_forex
+    restart: always
     environment:
-      ENABLE_BACKGROUND_SERVICE: "0"
-      ALLOW_ORIGINS: "*"
-      DB_PATH: "/app/data/btc_trader.db"
-      # Descomente e defina para produção:
-      # BINANCE_API_KEY: ${BINANCE_API_KEY}
-      # BINANCE_API_SECRET: ${BINANCE_API_SECRET}
-      # CRYPTOPANIC_API_KEY: ${CRYPTOPANIC_API_KEY}
-      # NEWSAPI_KEY: ${NEWSAPI_KEY}
+      - NOVADEXY_API_KEY=${NOVADEXY_API_KEY}
+      - NOVADEXY_API_SECRET=${NOVADEXY_API_SECRET}
+      - ACCOUNT_BALANCE=1000.0
+      - MAX_RISK=0.02
+      - BACKGROUND_INTERVAL=30
     volumes:
-      - db_data:/app/data
-      - logs:/app/logs
-    ports:
-      - "8000:8000"
-    restart: unless-stopped
+      # Espelha a pasta de logs para você poder ver os arquivos JSON aparecendo no seu Windows
+      - ./logs:/app/logs
 
-  worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    command: ["python", "worker_service.py"]
-    environment:
-      BACKGROUND_INTERVAL: "30"
-      DB_PATH: "/app/data/btc_trader.db"
-      # BINANCE_API_KEY: ${BINANCE_API_KEY}
-      # BINANCE_API_SECRET: ${BINANCE_API_SECRET}
-      # CRYPTOPANIC_API_KEY: ${CRYPTOPANIC_API_KEY}
-      # NEWSAPI_KEY: ${NEWSAPI_KEY}
-    volumes:
-      - db_data:/app/data
-      - logs:/app/logs
-    depends_on:
-      - api
-    restart: unless-stopped
-
-  web:
-    build:
-      context: ./web
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_API_BASE: http://api:8000
-    environment:
-      NEXT_PUBLIC_API_BASE: http://api:8000
-    ports:
-      - "3000:3000"
-    depends_on:
-      - api
-    restart: unless-stopped
-
-volumes:
-  db_data:
-  logs:
-
+  # Deixando o esqueleto do PostgreSQL pronto para quando formos configurar o banco mais tarde
+  # db:
+  #   image: postgres:15-alpine
+  #   ...
