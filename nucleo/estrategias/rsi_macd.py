@@ -96,13 +96,31 @@ class EstrategiaRsiMacd(Estrategia):
         tendencia[(curta > media) & (media > longa)] = COMPRA
         tendencia[(curta < media) & (media < longa)] = VENDA
 
-        # Comparacao com NaN da False, entao as barras de aquecimento saem
-        # naturalmente como NEUTRO - sem precisar recortar o quadro.
+        # Todos os indicadores precisam estar prontos, nao so os do gatilho.
+        # Sem esta mascara o filtro de tendencia falha aberto durante o
+        # aquecimento: a media de 200 ainda e NaN, `tendencia` fica NEUTRO, e
+        # `tendencia != VENDA` da True - ou seja, as primeiras 200 barras
+        # operariam sem filtro nenhum. E a mesma armadilha do codigo original,
+        # que pedia 100 velas e calculava media de 200.
+        pronto = (
+            rsi.notna()
+            & linhas["sinal"].notna()
+            & longa.notna()
+            & canal["resistencia"].notna()
+            & atr.notna()
+        )
+
         quer_comprar = (
-            (rsi < p.rsi_compra) & (linhas["macd"] > linhas["sinal"]) & (tendencia != VENDA)
+            pronto
+            & (rsi < p.rsi_compra)
+            & (linhas["macd"] > linhas["sinal"])
+            & (tendencia != VENDA)
         )
         quer_vender = (
-            (rsi > p.rsi_venda) & (linhas["macd"] < linhas["sinal"]) & (tendencia != COMPRA)
+            pronto
+            & (rsi > p.rsi_venda)
+            & (linhas["macd"] < linhas["sinal"])
+            & (tendencia != COMPRA)
         )
 
         direcao = pd.Series(

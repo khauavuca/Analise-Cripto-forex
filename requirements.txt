@@ -1,5 +1,8 @@
-pandas
-numpy
-requests
-python-dotenv
-scikit-learn
+ccxt>=4.5
+pandas>=2.2
+numpy>=1.26
+requests>=2.31
+python-dotenv>=1.0
+
+# desenvolvimento
+pytest>=8.0

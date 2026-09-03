@@ -1,21 +1,10 @@
-version: '3.8'
-
 services:
-  backend-worker:
+  vigia:
     build: .
-    container_name: worker_cripto_forex
+    container_name: vigia_cripto
     restart: always
-    environment:
-      - NOVADEXY_API_KEY=${NOVADEXY_API_KEY}
-      - NOVADEXY_API_SECRET=${NOVADEXY_API_SECRET}
-      - ACCOUNT_BALANCE=1000.0
-      - MAX_RISK=0.02
-      - BACKGROUND_INTERVAL=30
+    env_file:
+      - .env
     volumes:
-      # Espelha a pasta de logs para você poder ver os arquivos JSON aparecendo no seu Windows
       - ./logs:/app/logs
-
-  # Deixando o esqueleto do PostgreSQL pronto para quando formos configurar o banco mais tarde
-  # db:
-  #   image: postgres:15-alpine
-  #   ...
+      - ./dados:/app/dados

@@ -85,7 +85,7 @@ def calcular(
         vazio = float("nan")
         return Metricas(
             0, vazio, vazio, vazio, vazio, vazio, vazio, vazio,
-            _retorno_total(curva_capital), _buy_and_hold(quadro),
+            _retorno_total(curva_capital), retorno_comprar_e_segurar(quadro),
             *_rebaixamento(curva_capital), vazio, vazio, vazio, 0, 0.0, False,
         )
 
@@ -121,7 +121,7 @@ def calcular(
         expectancia_pct=float(retornos.mean()),
         fator_lucro=fator_lucro,
         retorno_total=_retorno_total(curva_capital),
-        retorno_buy_hold=_buy_and_hold(quadro),
+        retorno_buy_hold=retorno_comprar_e_segurar(quadro),
         rebaixamento_maximo=rebaixamento,
         barras_em_rebaixamento=barras_rebaixado,
         sharpe=_sharpe(curva_capital, barras_por_ano),
@@ -139,7 +139,7 @@ def _retorno_total(curva: pd.Series) -> float:
     return float(curva.iloc[-1] / curva.iloc[0] - 1)
 
 
-def _buy_and_hold(quadro: pd.DataFrame) -> float:
+def retorno_comprar_e_segurar(quadro: pd.DataFrame) -> float:
     """Comparacao obrigatoria: em janela de alta quase tudo parece genial."""
     if quadro.empty:
         return math.nan
@@ -199,6 +199,23 @@ def _maior_sequencia_perdas(retornos: pd.Series) -> int:
     return int(maior)
 
 
+def _descrever_dimensionamento(diagnosticos: dict) -> str:
+    """Explica sobre qual base o retorno foi calculado.
+
+    Sem isso o retorno total fica incomparavel: arriscar 2% por trade e
+    alocar 100% do capital produzem numeros de ordem completamente diferente
+    a partir dos mesmos sinais.
+    """
+    if diagnosticos.get("dimensionamento") == "fixo":
+        return "fracao fixa do capital por trade"
+    risco = diagnosticos.get("risco_por_trade", 0.0)
+    fracao = diagnosticos.get("fracao_media", 0.0)
+    return (
+        f"por risco - {risco:.1%} do capital por trade "
+        f"(exposicao media {fracao:.0%})"
+    )
+
+
 def formatar_relatorio(
     metricas: Metricas, diagnosticos: dict, titulo: str = "Backtest"
 ) -> str:
@@ -240,6 +257,7 @@ def formatar_relatorio(
         f"  barras por trade     {metricas.barras_medias_no_trade:.1f}",
         "",
         "DIAGNOSTICO DA SIMULACAO",
+        f"  dimensionamento      {_descrever_dimensionamento(diagnosticos)}",
         f"  custo ida e volta    {diagnosticos.get('custo_ida_e_volta', 0):.2%} por trade",
         f"  saidas ambiguas      {diagnosticos.get('pct_saidas_ambiguas', 0):.1%}"
         f"   (barra tocou stop e alvo juntos)",

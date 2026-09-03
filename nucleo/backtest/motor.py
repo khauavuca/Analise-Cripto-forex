@@ -30,8 +30,27 @@ MOTIVO_FIM = "FIM_DADOS"
 COLUNAS_TRADE = [
     "direcao", "entrada", "preco_entrada", "saida", "preco_saida", "motivo_saida",
     "barras_no_trade", "retorno_bruto_pct", "retorno_liquido_pct", "multiplo_r",
-    "mfe_pct", "mae_pct", "ambiguo", "stop", "alvo", "forca", "motivo_entrada",
+    "mfe_pct", "mae_pct", "ambiguo", "stop", "alvo", "forca", "fracao",
+    "motivo_entrada",
 ]
+
+
+def fracao_do_capital(
+    preco_entrada: float, stop: float, config: ConfigExecucao
+) -> float:
+    """Quanto do capital entra neste trade.
+
+    No modo "risco", a posicao e inversamente proporcional a distancia do stop,
+    com teto de exposicao - sem o teto, um stop a 0,1% pediria vinte vezes a
+    conta para "arriscar so 2%".
+    """
+    if config.dimensionamento == "fixo":
+        return config.fracao_por_trade
+
+    distancia = abs(preco_entrada - stop) / preco_entrada
+    if distancia <= 0:
+        return 0.0
+    return min(config.risco_por_trade / distancia, config.exposicao_maxima)
 
 
 @dataclass(frozen=True)
@@ -53,10 +72,25 @@ class ModeloCustos:
 
 @dataclass(frozen=True)
 class ConfigExecucao:
+    """Como as ordens sao simuladas.
+
+    `dimensionamento` decide quanto capital entra em cada trade e muda o
+    resultado mais do que parece:
+
+    - "fixo": sempre a mesma fracao do capital. Simples, mas ignora que um
+      trade com stop a 1% e um com stop a 5% carregam riscos bem diferentes.
+    - "risco": a posicao e calculada para que bater o stop custe sempre
+      `risco_por_trade` do capital - a formula do gestor de risco. E o que faz
+      a curva de capital concordar com a expectancia em R.
+    """
+
     max_barras_no_trade: int = 48
     atraso_barras: int = 1
     ambiguidade: str = "pessimista"
+    dimensionamento: str = "risco"
     fracao_por_trade: float = 1.0
+    risco_por_trade: float = 0.02
+    exposicao_maxima: float = 1.0
 
 
 @dataclass
@@ -75,6 +109,7 @@ class _Posicao:
     stop: float
     alvo: float
     forca: float
+    fracao: float
     motivo: str
     maior_favor: float = 0.0
     maior_contra: float = 0.0
@@ -135,13 +170,18 @@ def executar(
                     posicao, i, momentos[i], preco_saida, motivo_saida, foi_ambiguo, custos
                 )
                 trades.append(trade)
-                capital *= 1 + trade["retorno_liquido_pct"] * config.fracao_por_trade
+                capital *= 1 + trade["retorno_liquido_pct"] * trade["fracao"]
                 posicao = None
 
         # Nao abre posicao numa barra em que ja havia posicao aberta: a entrada
         # aconteceria na abertura, ou seja, antes da saida que acabou de ocorrer.
         if posicao is None and not tinha_posicao and direcoes[i] != NEUTRO:
-            if not (np.isnan(stops[i]) or np.isnan(alvos[i])):
+            fracao = (
+                fracao_do_capital(aberturas[i], float(stops[i]), config)
+                if not np.isnan(stops[i])
+                else 0.0
+            )
+            if not (np.isnan(stops[i]) or np.isnan(alvos[i])) and fracao > 0:
                 posicao = _Posicao(
                     direcao=int(direcoes[i]),
                     indice_entrada=i,
@@ -150,13 +190,14 @@ def executar(
                     stop=float(stops[i]),
                     alvo=float(alvos[i]),
                     forca=float(forcas[i]),
+                    fracao=fracao,
                     motivo=str(motivos[i]),
                 )
                 # A entrada foi na abertura desta barra, entao o que a barra
                 # percorreu depois disso ja conta para MFE e MAE.
                 posicao = _atualizar_extremos(posicao, maximas[i], minimas[i])
 
-        curva[i] = _marcar_a_mercado(capital, posicao, fechamentos[i], custos, config)
+        curva[i] = _marcar_a_mercado(capital, posicao, fechamentos[i], custos)
 
     if posicao is not None:
         # Posicao aberta no fim do arquivo nao e resultado - e o backtest
@@ -165,7 +206,7 @@ def executar(
             posicao, total - 1, momentos[-1], fechamentos[-1], MOTIVO_FIM, False, custos
         )
         trades.append(trade)
-        capital *= 1 + trade["retorno_liquido_pct"] * config.fracao_por_trade
+        capital *= 1 + trade["retorno_liquido_pct"] * trade["fracao"]
         curva[-1] = capital
 
     quadro_trades = pd.DataFrame(trades, columns=COLUNAS_TRADE)
@@ -185,6 +226,11 @@ def executar(
         ),
         "atraso_barras": config.atraso_barras,
         "ambiguidade": config.ambiguidade,
+        "dimensionamento": config.dimensionamento,
+        "risco_por_trade": config.risco_por_trade,
+        "fracao_media": (
+            float(quadro_trades["fracao"].mean()) if len(quadro_trades) else 0.0
+        ),
         "barras": total,
     }
 
@@ -320,6 +366,7 @@ def _fechar(
         "stop": posicao.stop,
         "alvo": posicao.alvo,
         "forca": posicao.forca,
+        "fracao": posicao.fracao,
         "motivo_entrada": posicao.motivo,
     }
 
@@ -329,7 +376,6 @@ def _marcar_a_mercado(
     posicao: _Posicao | None,
     fechamento: float,
     custos: ModeloCustos,
-    config: ConfigExecucao,
 ) -> float:
     """Capital incluindo o resultado nao realizado da posicao aberta.
 
@@ -346,4 +392,4 @@ def _marcar_a_mercado(
         posicao.direcao * (saida_efetiva - entrada_efetiva) / entrada_efetiva
         - 2 * custos.taxa_por_lado
     )
-    return capital * (1 + nao_realizado * config.fracao_por_trade)
+    return capital * (1 + nao_realizado * posicao.fracao)
