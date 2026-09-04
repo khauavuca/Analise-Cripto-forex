@@ -100,21 +100,35 @@ base no número, mire 100 ou mais.
 
 ## O que já foi medido
 
-Rodando em BTC/USDT 4h desde 2024, com taxa de 0,1% por lado e slippage de 5 bps:
+10 pares em 4h desde 2022 (~4,8 anos), taxa de 0,1% por lado e slippage de 5 bps.
+Os cinco primeiros foram usados durante o desenvolvimento; os cinco últimos só
+foram tocados depois que as estratégias já estavam congeladas.
 
-- A estratégia clássica **RSI + MACD não tem vantagem demonstrável**. Sensibilidade
-  ao atraso: executar no fechamento da própria vela do sinal rende +16,8%;
-  executar na abertura seguinte (o realizável) rende +0,6%; esperar mais uma vela
-  vira −3,8%. Praticamente toda a "vantagem" morava em olhar um preço que ainda
-  não existia.
-- **O custo come o resto**: com taxa zero o retorno é +12,8%; com a taxa real,
-  +0,6%; com o dobro, −10,4%.
-- **Teste de permutação**: p = 0,106. Indistinguível do acaso.
-- **Walk-forward**: expectância de +1,29 R dentro da amostra contra +0,80 R fora.
-  Essa diferença é quanto da estratégia era decoreba de ruído.
+| Conjunto | Pares | Trades | Acerto | Payoff | Expectância | Fator de lucro |
+|---|---|---|---|---|---|---|
+| Desenvolvimento | BTC, ETH, SOL, BNB, XRP | 411 | 45,0% | 1,33 | +0,099 R | **1,09** |
+| Nunca olhados | ADA, LINK, AVAX, DOT, LTC | 394 | 40,1% | 1,15 | −0,027 R | **0,77** |
 
-Isso é o sistema funcionando, não falhando. O valor está em descobrir antes de
-arriscar dinheiro, em vez de depois.
+A vantagem aparente no primeiro conjunto **não sobreviveu** no segundo. Nenhum
+dos pares novos chega a significância (melhor p = 0,229) e todos têm fator de
+lucro abaixo de 1.
+
+O caso mais instrutivo é o ETH. Nele a confluência passou em tudo: permutação
+com p = 0,005, vantagem estável sob atraso (+31% executando 1, 2 ou 3 velas
+depois do sinal), sobrevivendo até ao triplo do custo, e walk-forward com
+**+0,207 R fora da amostra contra +0,164 dentro**. Parecia sólido — e era
+seleção. Escolher o melhor entre cinco pares testados produz exatamente esse
+resultado, e só ficou visível quando as mesmas regras rodaram em pares que
+ninguém tinha olhado.
+
+A leitura honesta: RSI+MACD e cruzamento de médias, do jeito clássico, ficam
+entre empatar e perder depois de custos em cripto líquida. A entrega deste
+projeto não são essas duas estratégias — é o aparato que mede qualquer ideia
+antes de ela custar dinheiro.
+
+O banco guarda **MFE e MAE** de cada trade (o máximo a favor e o máximo contra
+antes da saída). É por ali que vale continuar: eles dizem, com dado realizado, se
+o stop está apertado demais ou o alvo longe demais, em vez de palpite.
 
 ---
 
