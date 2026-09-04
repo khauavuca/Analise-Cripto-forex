@@ -32,9 +32,9 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           # Mesma versao do ambiente de desenvolvimento, de proposito: o motor
           # de backtest e o coletor precisam produzir numeros identicos, e
@@ -43,7 +43,11 @@ jobs:
           cache: pip
 
       - name: Instalar dependencias
-        run: pip install --no-cache-dir -r requirements.txt
+        # SEM --no-cache-dir: `cache: pip` acima guarda /home/runner/.cache/pip
+        # entre execucoes, e instalar sem cache deixa essa pasta vazia. O passo
+        # de encerramento do setup-python entao nao acha o que salvar e derruba
+        # a execucao inteira - mesmo com a coleta ja concluida e commitada.
+        run: pip install -r requirements.txt
 
       - name: Coletar
         env:
