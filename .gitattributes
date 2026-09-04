@@ -1,0 +1,20 @@
+# Arquivos que rodam em Linux precisam de fim de linha LF, sempre.
+#
+# No Windows o Git converte para CRLF ao gravar no disco. Um script shell com
+# CRLF falha no servidor com "bad interpreter: No such file or directory" - erro
+# que nao diz em lugar nenhum que o problema e o fim de linha, e que ja custou
+# muita hora de gente boa.
+
+*.sh            text eol=lf
+Dockerfile      text eol=lf
+*.yml           text eol=lf
+*.yaml          text eol=lf
+.env.example    text eol=lf
+
+# Python roda igual nos dois, mas manter LF evita diff inteiro por causa de
+# quebra de linha quando alguem edita em outro sistema.
+*.py            text eol=lf
+*.md            text eol=lf
+
+*.db            binary
+*.pkl           binary
