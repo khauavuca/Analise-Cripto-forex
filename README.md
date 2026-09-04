@@ -28,10 +28,28 @@ EXCHANGE=binance    # ou bybit, okx, kraken, mexc, gateio...
 
 ## Começando
 
-```bash
-python -m venv .venv && .venv/Scripts/activate     # Windows
+Todos os comandos rodam **de dentro desta pasta**, com o venv ativado.
+
+No PowerShell (Windows):
+
+```powershell
+cd "C:\Users\USER\Desktop\Analise-Cripto-Forex\Analise-Cripto-forex"
+.\.venv\Scripts\Activate.ps1
+```
+
+Primeira vez, para criar o ambiente:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-cp .env.example .env
+copy .env.example .env
+```
+
+Se o `Activate.ps1` for bloqueado, libere só para esta sessão do terminal:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ```
 
 Nenhuma chave de API é necessária — o sistema só usa endpoints públicos de
