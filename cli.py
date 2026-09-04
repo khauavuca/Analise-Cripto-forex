@@ -32,23 +32,68 @@ from nucleo.estrategias.cruzamento_ema import (
     EstrategiaCruzamentoEma,
     ParametrosCruzamentoEma,
 )
+from nucleo.estrategias.estrutura import (
+    EstrategiaEstruturaMercado,
+    ParametrosEstrutura,
+)
+from nucleo.estrategias.momento import EstrategiaMomentoTemporal, ParametrosMomento
+from nucleo.estrategias.reversao import (
+    EstrategiaDesvioVwap,
+    EstrategiaReversaoBanda,
+    ParametrosReversaoBanda,
+    ParametrosVwap,
+)
 from nucleo.estrategias.rsi_macd import EstrategiaRsiMacd, ParametrosRsiMacd
+from nucleo.estrategias.ruptura import (
+    EstrategiaCompressaoVolatilidade,
+    EstrategiaRupturaDonchian,
+    ParametrosCompressao,
+    ParametrosDonchian,
+)
 from nucleo.risco import gerenciador as risco
 
 
+# Cada entrada e um setup mecanicamente distinto dos outros. A ideia nao e ter
+# muitas estrategias, e ter poucas que discordem entre si - duas versoes do
+# mesmo oscilador nao sao duas opinioes, sao a mesma com dois nomes.
+REGISTRO = {
+    "rsi_macd": (EstrategiaRsiMacd, ParametrosRsiMacd),
+    "ema": (EstrategiaCruzamentoEma, ParametrosCruzamentoEma),
+    "donchian": (EstrategiaRupturaDonchian, ParametrosDonchian),
+    "compressao": (EstrategiaCompressaoVolatilidade, ParametrosCompressao),
+    "momento": (EstrategiaMomentoTemporal, ParametrosMomento),
+    "reversao_bb": (EstrategiaReversaoBanda, ParametrosReversaoBanda),
+    "vwap": (EstrategiaDesvioVwap, ParametrosVwap),
+    "estrutura": (EstrategiaEstruturaMercado, ParametrosEstrutura),
+}
+
+DESCRICOES = {
+    "rsi_macd": "linha de base: RSI + MACD com filtro de tendencia",
+    "ema": "cruzamento de medias exponenciais filtrado por ADX",
+    "donchian": "rompimento de canal (Tartarugas / CTA)",
+    "compressao": "squeeze: volatilidade comprimida se soltando",
+    "momento": "momento temporal normalizado por volatilidade (TSMOM)",
+    "reversao_bb": "reversao na banda de Bollinger em mercado lateral",
+    "vwap": "desvio do VWAP ancorado, benchmark institucional",
+    "estrutura": "rompimento de topo/fundo confirmado (price action)",
+    "confluencia": "composicao ponderada de RSI+MACD com cruzamento de medias",
+}
+
+ESTRATEGIAS = tuple(REGISTRO) + ("confluencia",)
+
+
 def construir(nome: str, **ajustes):
-    if nome == "rsi_macd":
-        return EstrategiaRsiMacd(ParametrosRsiMacd(**ajustes))
-    if nome == "ema":
-        return EstrategiaCruzamentoEma(ParametrosCruzamentoEma(**ajustes))
+    nome = nome.strip()
     if nome == "confluencia":
         return EstrategiaComposta(
             [EstrategiaRsiMacd(), EstrategiaCruzamentoEma()], modo="ponderado", limiar=0.4
         )
-    raise SystemExit(f"Estrategia desconhecida: {nome}. Use rsi_macd, ema ou confluencia.")
-
-
-ESTRATEGIAS = ("rsi_macd", "ema", "confluencia")
+    if nome not in REGISTRO:
+        raise SystemExit(
+            f"Estrategia desconhecida: {nome}. Disponiveis: {', '.join(ESTRATEGIAS)}"
+        )
+    classe, parametros = REGISTRO[nome]
+    return classe(parametros(**ajustes))
 
 
 def _contexto(args):

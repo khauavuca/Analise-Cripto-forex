@@ -164,3 +164,126 @@ def canal_donchian(
         resistencia = resistencia.shift(1)
         suporte = suporte.shift(1)
     return pd.DataFrame({"resistencia": resistencia, "suporte": suporte})
+
+
+def canal_keltner(
+    maxima: pd.Series,
+    minima: pd.Series,
+    fechamento: pd.Series,
+    periodo: int = 20,
+    periodo_atr: int = 10,
+    multiplo: float = 2.0,
+) -> pd.DataFrame:
+    """Media exponencial com bandas de ATR. Colunas: inferior, meio, superior.
+
+    Diferente de Bollinger, a largura vem da amplitude real das velas e nao do
+    desvio dos fechamentos - por isso os dois juntos detectam compressao de
+    volatilidade: quando as bandas de Bollinger entram dentro das de Keltner,
+    o mercado esta mais parado que o normal para ele mesmo.
+    """
+    meio = media_movel_exponencial(fechamento, periodo)
+    faixa = faixa_verdadeira_media(maxima, minima, fechamento, periodo_atr)
+    return pd.DataFrame(
+        {
+            "inferior": meio - multiplo * faixa,
+            "meio": meio,
+            "superior": meio + multiplo * faixa,
+        }
+    )
+
+
+def retorno_periodo(fechamento: pd.Series, periodo: int) -> pd.Series:
+    """Retorno acumulado das ultimas `periodo` barras."""
+    return fechamento.pct_change(periodo)
+
+
+def volatilidade_realizada(fechamento: pd.Series, periodo: int = 20) -> pd.Series:
+    """Desvio padrao dos retornos logaritmicos - a volatilidade que ja ocorreu."""
+    log_retornos = np.log(fechamento / fechamento.shift(1))
+    return log_retornos.rolling(periodo, min_periods=periodo).std(ddof=1)
+
+
+def rotulo_ancora(indice: pd.DatetimeIndex, ancora: str) -> pd.Index:
+    """Rotulo do periodo de cada barra: dia, semana ou mes UTC.
+
+    `to_period` descarta o fuso e avisa; como o indice ja e UTC em todo o
+    sistema, tirar o fuso explicitamente antes e equivalente e silencioso.
+    """
+    if ancora.upper().startswith(("W", "M")):
+        sem_fuso = indice.tz_localize(None) if indice.tz is not None else indice
+        return sem_fuso.to_period(ancora).start_time
+    return indice.floor(ancora)
+
+
+def vwap_sessao(
+    quadro: pd.DataFrame, desvios: float = 2.0, ancora: str = "D"
+) -> pd.DataFrame:
+    """VWAP ancorado (UTC) com bandas de desvio ponderado por volume.
+
+    O VWAP e o preco de referencia institucional: mesas sao medidas por
+    executar acima ou abaixo dele. Por isso os desvios em torno dele nao sao
+    linha qualquer - sao onde ordem grande costuma aparecer.
+
+    A ancora importa mais do que parece. Em 4h um dia UTC tem so 6 velas, e um
+    VWAP de 6 pontos e ruido; ancorar na semana da 42 velas e a referencia
+    passa a significar alguma coisa. Acumula dentro da ancora, entao e
+    naturalmente causal: a barra `i` so soma o que ja passou.
+    """
+    tipico = (quadro["maxima"] + quadro["minima"] + quadro["fechamento"]) / 3
+    volume = quadro["volume"].where(quadro["volume"] > 0, 1e-12)
+    dia = rotulo_ancora(quadro.index, ancora)
+
+    volume_acumulado = volume.groupby(dia).cumsum()
+    preco_volume = (tipico * volume).groupby(dia).cumsum()
+    vwap = preco_volume / volume_acumulado
+
+    # Variancia ponderada por volume: E[p^2] - E[p]^2, acumulada na sessao.
+    quadrado = ((tipico**2) * volume).groupby(dia).cumsum() / volume_acumulado
+    desvio = np.sqrt((quadrado - vwap**2).clip(lower=0))
+
+    return pd.DataFrame(
+        {
+            "vwap": vwap,
+            "desvio": desvio,
+            "inferior": vwap - desvios * desvio,
+            "superior": vwap + desvios * desvio,
+        }
+    )
+
+
+def pivos(
+    maxima: pd.Series, minima: pd.Series, esquerda: int = 3, direita: int = 3
+) -> pd.DataFrame:
+    """Ultimo topo e ultimo fundo **ja confirmados**, carregados para frente.
+
+    Aqui mora a armadilha de look-ahead mais comum da analise de estrutura. Um
+    topo em `i` so e topo depois que `direita` barras mais baixas aparecem -
+    ou seja, essa informacao so existe na barra `i + direita`. Marcar o topo
+    na barra `i` e usa-lo ali e enxergar o futuro, e produz backtest de
+    estrutura com resultado espetacular e falso.
+
+    A janela centrada identifica o candidato e o `shift(direita)` devolve a
+    informacao ao instante em que ela realmente passou a ser conhecida.
+    """
+    janela = esquerda + direita + 1
+
+    maior = maxima.rolling(janela, center=True, min_periods=janela).max()
+    menor = minima.rolling(janela, center=True, min_periods=janela).min()
+
+    topo_agora = maxima.eq(maior)
+    fundo_agora = minima.eq(menor)
+
+    topo_confirmado = topo_agora.shift(direita).fillna(False).astype(bool)
+    fundo_confirmado = fundo_agora.shift(direita).fillna(False).astype(bool)
+
+    preco_topo = maxima.shift(direita).where(topo_confirmado).ffill()
+    preco_fundo = minima.shift(direita).where(fundo_confirmado).ffill()
+
+    return pd.DataFrame(
+        {
+            "topo": preco_topo,
+            "fundo": preco_fundo,
+            "topo_novo": topo_confirmado,
+            "fundo_novo": fundo_confirmado,
+        }
+    )

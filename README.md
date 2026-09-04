@@ -126,6 +126,57 @@ entre empatar e perder depois de custos em cripto líquida. A entrega deste
 projeto não são essas duas estratégias — é o aparato que mede qualquer ideia
 antes de ela custar dinheiro.
 
+### Os seis setups profissionais
+
+Cada um usa uma mecânica de decisão diferente das outras — não são variações do
+mesmo oscilador. A correlação entre os sinais confirma: nenhum par passa de 0,41
+em módulo (o mais alto é `donchian` × `vwap`, −0,41, que são opostos por
+construção).
+
+| Setup | Mecânica | Origem |
+|---|---|---|
+| `donchian` | rompe a máxima de 20 barras, stop 2×ATR | Tartarugas / CTAs |
+| `momento` | sinal do retorno de 60 barras, normalizado por volatilidade | TSMOM (Moskowitz, Ooi & Pedersen) |
+| `compressao` | Bollinger dentro de Keltner, entra quando solta | Squeeze de John Carter |
+| `reversao_bb` | extremo de banda, só com ADX < 20 | reversão à média clássica |
+| `vwap` | desvio do VWAP ancorado na semana | benchmark institucional de execução |
+| `estrutura` | rompe topo confirmado, com topos e fundos ascendentes | price action / market structure |
+
+Medidos em 4h desde 2022, ordenados pelo **fator de lucro nos 5 pares nunca
+olhados** — a única coluna que não sofre de seleção:
+
+| Setup | Trades (novos) | Fator (dev) | **Fator (novos)** | Acerto | Payoff |
+|---|---|---|---|---|---|
+| `ema` | 1056 | 1,00 | **1,17** | 48% [45–51%] | 1,28 |
+| `donchian` | 1624 | 1,01 | 1,01 | 39% | 1,59 |
+| `momento` | 1016 | 0,94 | 0,98 | 42% | 1,37 |
+| `compressao` | 1121 | 0,96 | 0,96 | 36% | 1,68 |
+| `rsi_macd` | 237 | 0,97 | 0,84 | 28% | 2,16 |
+| `confluencia` | 394 | 1,09 | 0,77 | 40% | 1,15 |
+| `estrutura` | 826 | 0,90 | **0,77** | **53%** | 0,64 |
+| `vwap` | 2019 | 0,69 | 0,69 | 25% | 2,05 |
+| `reversao_bb` | 1016 | 0,62 | 0,62 | 29% | 1,52 |
+
+Três leituras:
+
+**`estrutura` é a demonstração do problema da assertividade.** Tem a maior taxa
+de acerto de todos — 53% nos pares novos — e é um dos que mais perde dinheiro,
+porque o payoff é 0,64: os perdedores são maiores que os ganhadores. Quem
+escolhesse setup por taxa de acerto escolheria justamente ele.
+
+**A família de reversão perde de forma consistente** (`vwap` 0,69, `reversao_bb`
+0,62 — idênticos nos dois conjuntos). Em cripto, que passa a maior parte do tempo
+em tendência, comprar o extremo é ser atropelado. É um resultado estrutural, não
+ruído.
+
+**`ema` é o único candidato real.** Foi o único com fator acima de 1 fora da
+amostra — e melhorou de 1,00 para 1,17 ao sair dela. Nos pares individuais:
+ADA, AVAX e DOT dão p ≤ 0,007 com o retorno praticamente inalterado quando se
+atrasa a execução em 1, 2 ou 3 velas (a assinatura de efeito real) e sobrevivem
+ao dobro do custo; LINK e LTC perdem. É o comportamento esperado de um sistema
+seguidor de tendência: ele ganha onde houve tendência, e é por isso que CTAs
+rodam cestas de mercados em vez de um só.
+
 ### Calibragem: o que o MFE/MAE mostrou
 
 `python cli.py calibrar` converte a excursão de cada trade em múltiplos de risco.

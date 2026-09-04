@@ -141,6 +141,87 @@ class TestCanalDonchian:
         assert cru["resistencia"].iloc[3] == 99.0
 
 
+@pytest.fixture
+def ohlcv(ohlc: pd.DataFrame) -> pd.DataFrame:
+    gerador = np.random.default_rng(SEMENTE + 2)
+    quadro = ohlc.copy()
+    quadro["volume"] = np.abs(gerador.normal(100, 30, len(quadro))) + 1
+    return quadro
+
+
+class TestPivos:
+    """Onde o look-ahead entra na analise de estrutura."""
+
+    def test_topo_so_aparece_depois_da_confirmacao(self):
+        # O topo esta na posicao 3. Com direita=2, ele so pode ser conhecido
+        # na posicao 5.
+        maxima = pd.Series([1.0, 2.0, 3.0, 9.0, 4.0, 3.0, 2.0, 1.0, 0.5])
+        minima = maxima - 1
+
+        resultado = ind.pivos(maxima, minima, esquerda=2, direita=2)
+
+        assert resultado["topo"].iloc[4] != 9.0, "na barra 4 o topo ainda nao existe"
+        assert resultado["topo"].iloc[5] == 9.0, "so na barra 5 ele passa a ser visivel"
+        assert bool(resultado["topo_novo"].iloc[5]) is True
+
+    def test_topo_e_carregado_para_frente(self):
+        maxima = pd.Series([1.0, 2.0, 9.0, 4.0, 3.0, 2.0, 1.0, 0.5, 0.4, 0.3])
+        minima = maxima - 1
+        resultado = ind.pivos(maxima, minima, esquerda=2, direita=2)
+        conhecidos = resultado["topo"].dropna()
+        assert (conhecidos == 9.0).any()
+
+    @pytest.mark.parametrize("corte", [200, 400, 650])
+    def test_pivos_sao_causais(self, ohlc: pd.DataFrame, corte: int):
+        """Cortar a serie nao pode mudar nenhum pivo ja conhecido.
+
+        A janela usada e centrada - olha para frente de proposito - e so o
+        `shift` de confirmacao a torna causal. Se esse shift sumir, este teste
+        e o unico que percebe.
+        """
+        completo = ind.pivos(ohlc.maxima, ohlc.minima, 3, 3)
+        parcial = ind.pivos(ohlc.maxima.iloc[:corte], ohlc.minima.iloc[:corte], 3, 3)
+        pd.testing.assert_frame_equal(parcial.tail(40), completo.iloc[:corte].tail(40))
+
+
+class TestVwap:
+    def test_reinicia_a_cada_ancora(self, ohlcv: pd.DataFrame):
+        referencia = ind.vwap_sessao(ohlcv, ancora="D")
+        primeiro_dia = ohlcv.index.floor("D")[0]
+        primeira_barra = ohlcv[ohlcv.index.floor("D") == primeiro_dia].iloc[0]
+        tipico = (primeira_barra.maxima + primeira_barra.minima + primeira_barra.fechamento) / 3
+        # Na primeira barra do periodo o VWAP e o proprio preco tipico dela.
+        assert referencia["vwap"].iloc[0] == pytest.approx(tipico)
+        assert referencia["desvio"].iloc[0] == pytest.approx(0.0, abs=1e-6)
+
+    @pytest.mark.parametrize("corte", [200, 500])
+    def test_vwap_e_causal(self, ohlcv: pd.DataFrame, corte: int):
+        completo = ind.vwap_sessao(ohlcv, ancora="D")
+        parcial = ind.vwap_sessao(ohlcv.iloc[:corte], ancora="D")
+        pd.testing.assert_series_equal(
+            parcial["vwap"].tail(30), completo["vwap"].iloc[:corte].tail(30)
+        )
+
+    def test_ancora_semanal_agrupa_mais_barras(self, ohlcv: pd.DataFrame):
+        diario = ind.rotulo_ancora(ohlcv.index, "D")
+        semanal = ind.rotulo_ancora(ohlcv.index, "W")
+        assert len(set(semanal)) < len(set(diario))
+
+
+class TestKeltner:
+    def test_bandas_cercam_a_media(self, ohlc: pd.DataFrame):
+        canal = ind.canal_keltner(ohlc.maxima, ohlc.minima, ohlc.fechamento)
+        pronto = canal.dropna()
+        assert (pronto["inferior"] < pronto["meio"]).all()
+        assert (pronto["superior"] > pronto["meio"]).all()
+
+    def test_largura_acompanha_o_atr(self, ohlc: pd.DataFrame):
+        estreito = ind.canal_keltner(ohlc.maxima, ohlc.minima, ohlc.fechamento, multiplo=1.0)
+        largo = ind.canal_keltner(ohlc.maxima, ohlc.minima, ohlc.fechamento, multiplo=3.0)
+        vale = estreito["superior"].notna()
+        assert (largo["superior"][vale] > estreito["superior"][vale]).all()
+
+
 class TestMacd:
     def test_histograma_e_a_diferenca(self, serie: pd.Series):
         linhas = ind.macd(serie)
