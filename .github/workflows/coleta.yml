@@ -52,6 +52,10 @@ jobs:
       - name: Coletar
         env:
           TZ: UTC
+          # Explicito de proposito. O runner do GitHub roda em datacenter, e a
+          # Binance recusa faixas de nuvem com 451 "restricted location" - de
+          # forma intermitente, o que daria falha aleatoria numa coleta 24/7.
+          EXCHANGE: okx
           # Banco descartavel: o runner e recriado a cada execucao. A memoria
           # que atravessa execucoes e o arquivo JSONL versionado.
           BANCO_DADOS: ${{ runner.temp }}/efemero.db

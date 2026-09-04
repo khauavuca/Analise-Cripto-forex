@@ -41,6 +41,10 @@ class FalhaNaFonte(RuntimeError):
     """A corretora nao respondeu depois de todas as tentativas."""
 
 
+class BloqueioGeografico(RuntimeError):
+    """A corretora recusou o IP por regiao. Retentar nao adianta."""
+
+
 class ProvedorCCXT(ProvedorDados):
     """Velas e precos de qualquer corretora suportada pelo CCXT."""
 
@@ -50,7 +54,12 @@ class ProvedorCCXT(ProvedorDados):
         limite_por_pagina: int = LIMITE_PADRAO,
         cliente=None,
     ) -> None:
-        self.nome = (corretora or os.getenv("EXCHANGE", "binance")).strip().lower()
+        # OKX e o padrao, e nao a Binance, por um motivo medido: a Binance
+        # devolve 451 "restricted location" de forma INTERMITENTE conforme o
+        # no de borda que atende o IP. Num coletor 24/7 isso vira falha
+        # aleatoria. A OKX tem os mesmos pares, historico desde 2021 e os
+        # mesmos timeframes.
+        self.nome = (corretora or os.getenv("EXCHANGE", "okx")).strip().lower()
         self.limite_por_pagina = limite_por_pagina
 
         if cliente is not None:
@@ -161,6 +170,19 @@ class ProvedorCCXT(ProvedorDados):
                 return self.cliente.fetch_ohlcv(
                     par, timeframe=timeframe, since=desde, limit=self.limite_por_pagina
                 )
+            except ccxt.ExchangeNotAvailable as erro:
+                # 451 e bloqueio geografico: insistir nao resolve, so gasta 15
+                # segundos por par antes de falhar igual. Falha na hora, com o
+                # que a pessoa precisa fazer.
+                if "451" in str(erro) or "restricted location" in str(erro).lower():
+                    raise BloqueioGeografico(
+                        f"{self.nome} bloqueou este IP (HTTP 451, "
+                        f"'restricted location'). Troque EXCHANGE no .env - "
+                        f"okx, bybit, bitget e mexc costumam atender o Brasil. "
+                        f"Os pares e o resto do sistema seguem iguais."
+                    ) from erro
+                ultimo_erro = erro
+                time.sleep(2**tentativa)
             except ccxt.RateLimitExceeded as erro:
                 ultimo_erro = erro
                 time.sleep(2**tentativa * 2)
