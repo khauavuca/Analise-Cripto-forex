@@ -141,6 +141,12 @@ def coletar(
                             "fechamento": float(vela.fechamento),
                             "direcao": int(sinal.direcao),
                             "forca": float(sinal.forca),
+                            # Sem stop e alvo nao da para reconstruir o que
+                            # aconteceu depois do sinal - e reconstruir isso e
+                            # justamente o que mede assertividade.
+                            "stop": None if pd.isna(sinal.stop) else float(sinal.stop),
+                            "alvo": None if pd.isna(sinal.alvo) else float(sinal.alvo),
+                            "motivo": str(sinal.motivo),
                         }
                         # O ouvinte do arquivo recebe a observacao antes da
                         # checagem do banco, e faz a propria deduplicacao. No

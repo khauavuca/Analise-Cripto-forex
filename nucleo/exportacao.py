@@ -116,6 +116,9 @@ def escrever(caminho: Path, registro: dict) -> None:
         "fechamento": _limpar(registro.get("fechamento")),
         "direcao": _limpar(registro.get("direcao")),
         "forca": _limpar(registro.get("forca")),
+        "stop": _limpar(registro.get("stop")),
+        "alvo": _limpar(registro.get("alvo")),
+        "motivo": registro.get("motivo") or "",
         "indicadores": {
             nome: _limpar(valor)
             for nome, valor in (registro.get("indicadores") or {}).items()
