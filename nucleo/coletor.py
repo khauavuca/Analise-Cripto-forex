@@ -54,6 +54,8 @@ def coletar(
     ao_registrar=None,
     parar=None,
     ciclos_por_pulso: int = 60,
+    ciclos_maximos: int | None = None,
+    ao_observar=None,
 ) -> ResumoColeta:
     """Acompanha os pares pelo tempo pedido, gravando cada vela fechada.
 
@@ -73,6 +75,8 @@ def coletar(
 
     def acabou() -> bool:
         if parar is not None and parar():
+            return True
+        if ciclos_maximos is not None and resumo.ciclos >= ciclos_maximos:
             return True
         return not indefinido and datetime.now(timezone.utc) >= fim
 
@@ -129,12 +133,6 @@ def coletar(
                             },
                             indicadores,
                         )
-                        if not nova:
-                            continue
-
-                        resumo.velas_novas += 1
-                        chave = (par, timeframe)
-                        resumo.por_alvo[chave] = resumo.por_alvo.get(chave, 0) + 1
                         registro = {
                             "par": par,
                             "timeframe": timeframe,
@@ -144,6 +142,22 @@ def coletar(
                             "direcao": int(sinal.direcao),
                             "forca": float(sinal.forca),
                         }
+                        # O ouvinte do arquivo recebe a observacao antes da
+                        # checagem do banco, e faz a propria deduplicacao. No
+                        # GitHub Actions o banco nasce vazio a cada execucao,
+                        # entao ele nao serve de memoria - o arquivo do mes e
+                        # que atravessa as execucoes.
+                        if ao_observar:
+                            # Todo dado importa: a barra sem sinal diz se o
+                            # gatilho passou perto ou nem chegou perto, e sem
+                            # ela nao da para estudar o que NAO foi operado.
+                            ao_observar({**registro, "indicadores": indicadores})
+                        if not nova:
+                            continue
+
+                        resumo.velas_novas += 1
+                        chave = (par, timeframe)
+                        resumo.por_alvo[chave] = resumo.por_alvo.get(chave, 0) + 1
                         if int(sinal.direcao) != 0:
                             resumo.sinais.append(registro)
                             if ao_registrar:

@@ -1,8 +1,81 @@
-# Coleta 24/7 na Oracle Cloud (Always Free)
+# Coleta contínua, sem depender da sua máquina
 
-Guia para deixar a coleta rodando sem depender da sua máquina. O serviço só lê
-mercado público e grava observações — **nenhuma ordem é enviada, e nenhuma chave
-de API é necessária.**
+O sistema só lê mercado público e grava observações — **nenhuma ordem é enviada,
+e nenhuma chave de API é necessária.**
+
+Dois caminhos. O primeiro é o recomendado e não exige conta nova, cartão nem
+servidor.
+
+---
+
+# Caminho A — GitHub Actions (recomendado)
+
+Uma tarefa agendada roda a cada 5 minutos no runner do GitHub, coleta a última
+vela fechada de cada par e timeframe, passa pelos 8 setups e grava as
+observações novas no próprio repositório, em JSONL.
+
+Em repositório **público** os minutos são ilimitados e gratuitos.
+
+## Por que JSONL e não o banco
+
+O runner é recriado a cada execução: o SQLite que ele monta morre junto. O que
+atravessa as execuções é o arquivo commitado.
+
+Ele é texto, e isso resolve dois problemas de uma vez. Commitar um SQLite —
+binário — geraria conflito a cada execução e uma cópia inteira do banco por
+commit no histórico do Git. Com JSONL o commit é só o que entrou, o diff é
+legível, e você ganha **histórico versionado**: dá para reconstruir exatamente o
+que o sistema via em qualquer instante passado, que é o que um treino de modelo
+precisa para não aprender com informação que só existiu depois.
+
+A duplicação é tratada no próprio arquivo, não no banco — cada execução lê as
+chaves já gravadas do mês e ignora o que repetir. Sem isso, como o banco nasce
+vazio toda vez, cada rodada regravaria as mesmas velas.
+
+## Ligar
+
+O workflow já está em `.github/workflows/coleta.yml`. Ele precisa estar na
+**branch padrão** do repositório — o agendador do GitHub só dispara a partir
+dela.
+
+Depois de o código estar na branch padrão, em **Actions** no site do
+repositório, habilite os workflows se o GitHub pedir. A primeira execução pode
+ser disparada na mão em **Coleta de mercado → Run workflow**, sem esperar os 5
+minutos.
+
+## Acompanhar
+
+Os dados aparecem em `dados/observacoes/observacoes-AAAA-MM.jsonl`, com um
+commit por coleta. Para trazer para a sua máquina e analisar:
+
+```bash
+git pull
+```
+
+```bash
+python cli.py importar --padrao "dados/observacoes/*.jsonl"
+```
+
+```bash
+python cli.py calibrar
+```
+
+## Limitações honestas
+
+O intervalo mínimo do agendador é **5 minutos**, então timeframe de 1m fica de
+fora — de 5m para cima funciona. O GitHub **atrasa** o disparo quando a fila
+está cheia; como cada execução busca a última vela fechada e o arquivo ignora
+repetição, o efeito é no máximo algumas velas coletadas juntas depois.
+
+Tarefas agendadas são desativadas após **60 dias sem atividade no
+repositório** — os commits da própria coleta ajudam, mas vale saber que existe.
+
+---
+
+# Caminho B — Oracle Cloud (VM própria)
+
+Só vale se você quiser 1m, controle total da máquina, ou não quiser os dados no
+repositório público.
 
 ## Por que Oracle e por que São Paulo
 
@@ -85,7 +158,7 @@ porta nenhuma** — ele só faz conexões de saída — não é preciso liberar 
 ## 4. Subir o projeto
 
 ```bash
-git clone https://github.com/Khauazin/Analise-Cripto-forex.git ~/analise-cripto
+git clone https://github.com/khauavuca/Analise-Cripto-forex.git ~/analise-cripto
 cd ~/analise-cripto && git checkout motor-backtest-ccxt
 ```
 

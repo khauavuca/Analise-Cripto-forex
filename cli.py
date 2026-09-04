@@ -542,13 +542,32 @@ def comando_monitorar(args) -> int:
         except (ValueError, OSError):
             pass
 
+    ao_observar = None
+    escritor = None
+    if args.jsonl:
+        from nucleo import exportacao
+
+        escritor = exportacao.EscritorJsonl(args.jsonl)
+        ao_observar = escritor
+        print(
+            f"gravando tambem em {escritor.caminho} "
+            f"({len(escritor.vistas)} observacoes ja no arquivo)"
+        )
+
     resumo = coletor.coletar(
         pares, timeframes, estrategias, provedor, armazenamento,
         minutos=args.minutos, intervalo_segundos=args.intervalo, ao_registrar=mostrar,
         parar=lambda: pedido_de_parada["sim"],
+        ciclos_maximos=args.ciclos if args.ciclos > 0 else None,
+        ao_observar=ao_observar,
     )
 
     print(f"\n--- coleta encerrada ---")
+    if escritor is not None:
+        print(
+            f"jsonl: {escritor.gravadas} gravadas, "
+            f"{escritor.repetidas} ja existiam e foram ignoradas"
+        )
     print(f"ciclos {resumo.ciclos} | velas novas {resumo.velas_novas} | erros {resumo.erros}")
     if resumo.por_alvo:
         print("\nvelas por alvo:")
@@ -580,6 +599,31 @@ def comando_monitorar(args) -> int:
                 "  explicado."
             )
 
+    armazenamento.fechar()
+    return 0
+
+
+# ------------------------------------------------------------------- importar
+
+
+def comando_importar(args) -> int:
+    """Leva as observacoes coletadas na nuvem para o banco local."""
+    from glob import glob
+
+    from nucleo import exportacao
+
+    _, armazenamento = _contexto(args)
+    caminhos = sorted(glob(args.padrao))
+    if not caminhos:
+        raise SystemExit(f"Nenhum arquivo casou com {args.padrao!r}.")
+
+    print(f"lendo {len(caminhos)} arquivo(s):")
+    for caminho in caminhos:
+        print(f"  {caminho}")
+
+    gravadas = exportacao.importar(armazenamento, caminhos)
+    total = len(armazenamento.observacoes())
+    print(f"novas observacoes: {gravadas} | total no banco: {total}")
     armazenamento.fechar()
     return 0
 
@@ -667,7 +711,24 @@ def montar_parser() -> argparse.ArgumentParser:
         help="0 = roda indefinidamente, ate Ctrl+C ou parada do servico",
     )
     p.add_argument("--intervalo", type=int, default=20, help="segundos entre consultas")
+    p.add_argument(
+        "--ciclos", type=int, default=0,
+        help="para depois de N passagens; 0 = sem limite. Use 1 no GitHub Actions",
+    )
+    p.add_argument(
+        "--jsonl", default=None, metavar="PASTA",
+        help="grava tambem em JSONL nesta pasta, um arquivo por mes",
+    )
     p.set_defaults(funcao=comando_monitorar)
+
+    p = sub.add_parser("importar", help="carrega observacoes JSONL no banco local")
+    p.add_argument("--banco", default=None)
+    p.add_argument("--corretora", default=None)
+    p.add_argument(
+        "--padrao", default="dados/observacoes/*.jsonl",
+        help="caminho ou padrao dos arquivos JSONL",
+    )
+    p.set_defaults(funcao=comando_importar)
 
     p = sub.add_parser("walkforward", help="otimiza no treino, mede no que veio depois")
     comuns(p)
