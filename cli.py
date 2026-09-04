@@ -600,6 +600,23 @@ def comando_monitorar(args) -> int:
             )
 
     armazenamento.fechar()
+
+    # O codigo de saida precisa dizer a verdade. Um ciclo em que TODOS os
+    # alvos falharam e zero vela entrou nao e sucesso - mas sem isso ele
+    # sai 0, o GitHub pinta de verde e a coleta morre em silencio por dias
+    # sem ninguem notar. Foi o que aconteceu na execucao agendada que tomou
+    # 451 da Binance nos quinze alvos e reportou sucesso.
+    if resumo.erros and not resumo.velas_novas:
+        print(
+            f"\nFALHA: {resumo.erros} erro(s) e nenhuma vela coletada. "
+            f"A execucao nao trouxe dado nenhum."
+        )
+        return 1
+    if resumo.erros:
+        print(
+            f"\nAviso: {resumo.erros} alvo(s) falharam, mas "
+            f"{resumo.velas_novas} vela(s) foram coletadas."
+        )
     return 0
 
 
