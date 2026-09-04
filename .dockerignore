@@ -8,3 +8,6 @@ logs/
 __pycache__/
 .pytest_cache/
 .env
+dados/
+backups/
+DEPLOY.md

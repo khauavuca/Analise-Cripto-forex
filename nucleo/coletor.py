@@ -52,6 +52,8 @@ def coletar(
     minutos: int,
     intervalo_segundos: int = 20,
     ao_registrar=None,
+    parar=None,
+    ciclos_por_pulso: int = 60,
 ) -> ResumoColeta:
     """Acompanha os pares pelo tempo pedido, gravando cada vela fechada.
 
@@ -59,13 +61,34 @@ def coletar(
     e timeframe, com o maior aquecimento entre elas, e cada estrategia opina
     sobre ele. Assim os setups sao comparados sobre exatamente os mesmos dados,
     sem diferenca de janela mascarando diferenca de metodo.
+
+    `minutos=0` roda indefinidamente, ate `parar()` devolver True - e o modo de
+    servico. Cada vela e gravada assim que fecha, entao interromper a qualquer
+    momento nao perde nada do que ja foi coletado.
     """
-    fim = datetime.now(timezone.utc) + timedelta(minutes=minutos)
+    indefinido = minutos <= 0
+    fim = datetime.now(timezone.utc) + timedelta(minutes=max(minutos, 0))
     aquecimento = max(e.barras_de_aquecimento() for e in estrategias)
     resumo = ResumoColeta()
 
-    while datetime.now(timezone.utc) < fim:
+    def acabou() -> bool:
+        if parar is not None and parar():
+            return True
+        return not indefinido and datetime.now(timezone.utc) >= fim
+
+    while not acabou():
         resumo.ciclos += 1
+        if ao_registrar and resumo.ciclos % ciclos_por_pulso == 0:
+            # Pulso de vida: num servico que passa horas sem emitir sinal, o
+            # log silencioso e indistinguivel de processo travado.
+            ao_registrar(
+                {
+                    "pulso": (
+                        f"ciclo {resumo.ciclos} | velas {resumo.velas_novas} | "
+                        f"sinais {len(resumo.sinais)} | erros {resumo.erros}"
+                    )
+                }
+            )
         for par in pares:
             for timeframe in timeframes:
                 try:
@@ -131,10 +154,22 @@ def coletar(
                     if ao_registrar:
                         ao_registrar({"erro": f"{par} {timeframe}: {erro}"})
 
-        restante = (fim - datetime.now(timezone.utc)).total_seconds()
+        if acabou():
+            break
+        restante = (
+            float(intervalo_segundos)
+            if indefinido
+            else (fim - datetime.now(timezone.utc)).total_seconds()
+        )
         if restante <= 0:
             break
-        time.sleep(min(intervalo_segundos, restante))
+        # Dorme em fatias de 1s para atender um pedido de parada na hora, em
+        # vez de so no fim do intervalo - importante para `docker stop`, que
+        # espera pouco antes de matar o processo a forca.
+        dormir = min(intervalo_segundos, restante)
+        while dormir > 0 and not (parar is not None and parar()):
+            time.sleep(min(1.0, dormir))
+            dormir -= 1
 
     return resumo
 

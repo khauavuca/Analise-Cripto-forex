@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import signal
 import sys
 from datetime import datetime, timedelta, timezone
 
@@ -505,12 +506,17 @@ def comando_monitorar(args) -> int:
         print(f"  - {e.nome}")
     print(f"pares      : {', '.join(pares)}")
     print(f"timeframes : {', '.join(timeframes)}")
-    print(f"duracao    : {args.minutos} min, consultando a cada {args.intervalo}s")
+    duracao = "sem prazo (ate ser interrompido)" if args.minutos <= 0 else f"{args.minutos} min"
+    print(f"duracao    : {duracao}, consultando a cada {args.intervalo}s")
     print("NENHUMA ordem sera enviada. So leitura de mercado e gravacao.\n")
 
     def mostrar(registro: dict) -> None:
+        agora = datetime.now(timezone.utc).strftime("%d/%m %H:%M:%S")
         if "erro" in registro:
-            print(f"  ! {registro['erro']}")
+            print(f"  {agora} ! {registro['erro']}", flush=True)
+            return
+        if "pulso" in registro:
+            print(f"  {agora} . {registro['pulso']}", flush=True)
             return
         rotulo = {1: "COMPRA", -1: "VENDA", 0: "-"}[registro["direcao"]]
         marca = "  <<<" if registro["direcao"] != 0 else ""
@@ -520,9 +526,26 @@ def comando_monitorar(args) -> int:
             f"{rotulo:<7}{marca}  {registro.get('estrategia','')}"
         )
 
+    # Servico precisa parar com calma: `docker stop` e `systemctl stop` mandam
+    # SIGTERM e esperam poucos segundos antes de matar. Como cada vela ja foi
+    # gravada quando fechou, parar aqui nao perde dado - so evita deixar a
+    # conexao do banco aberta.
+    pedido_de_parada = {"sim": False}
+
+    def encerrar(numero, _quadro):
+        pedido_de_parada["sim"] = True
+        print(f"  sinal {numero} recebido, encerrando a coleta...", flush=True)
+
+    for evento in (signal.SIGINT, signal.SIGTERM):
+        try:
+            signal.signal(evento, encerrar)
+        except (ValueError, OSError):
+            pass
+
     resumo = coletor.coletar(
         pares, timeframes, estrategias, provedor, armazenamento,
         minutos=args.minutos, intervalo_segundos=args.intervalo, ao_registrar=mostrar,
+        parar=lambda: pedido_de_parada["sim"],
     )
 
     print(f"\n--- coleta encerrada ---")
@@ -639,7 +662,10 @@ def montar_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--pares", default="BTC/USDT,ETH/USDT,SOL/USDT")
     p.add_argument("--tfs", default="1m,5m,15m", help="timeframes, separados por virgula")
-    p.add_argument("--minutos", type=int, default=60)
+    p.add_argument(
+        "--minutos", type=int, default=60,
+        help="0 = roda indefinidamente, ate Ctrl+C ou parada do servico",
+    )
     p.add_argument("--intervalo", type=int, default=20, help="segundos entre consultas")
     p.set_defaults(funcao=comando_monitorar)
 

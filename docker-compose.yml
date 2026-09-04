@@ -1,10 +1,31 @@
 services:
-  vigia:
+  coletor:
     build: .
-    container_name: vigia_cripto
-    restart: always
+    container_name: coletor_cripto
+    restart: unless-stopped
     env_file:
       - .env
+    environment:
+      TZ: UTC
     volumes:
-      - ./logs:/app/logs
+      # Banco e logs vivem fora do container. Recriar o container - por
+      # atualizacao de codigo ou reboot da maquina - nao pode levar junto
+      # semanas de coleta.
       - ./dados:/app/dados
+      - ./logs:/app/logs
+    command: >
+      python cli.py monitorar
+      --pares ${PARES:-BTC/USDT,ETH/USDT,SOL/USDT,BNB/USDT,XRP/USDT}
+      --tfs ${TIMEFRAMES:-5m,15m,1h}
+      --estrategia ${ESTRATEGIAS:-todas}
+      --minutos 0
+      --intervalo ${INTERVALO_SEGUNDOS:-20}
+    # Tempo para o processo fechar o banco com calma ao receber SIGTERM.
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        # Sem limite, o log de um servico 24/7 enche o disco de uma VM pequena
+        # em poucas semanas - e a coleta para por falta de espaco.
+        max-size: "10m"
+        max-file: "5"
