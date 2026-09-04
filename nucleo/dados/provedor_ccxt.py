@@ -167,9 +167,14 @@ class ProvedorCCXT(ProvedorDados):
             except ccxt.NetworkError as erro:
                 ultimo_erro = erro
                 time.sleep(2**tentativa)
+        # A causa real vai na mensagem, e nao so encadeada: o coletor registra
+        # str(erro) no log, entao sem isso o operador ve "nao respondeu" e nao
+        # descobre se foi limite de taxa, bloqueio geografico ou queda de rede -
+        # que pedem providencias completamente diferentes.
         raise FalhaNaFonte(
             f"{self.nome} nao respondeu para {par} {timeframe} depois de "
-            f"{MAX_TENTATIVAS} tentativas."
+            f"{MAX_TENTATIVAS} tentativas. Ultimo erro: "
+            f"{type(ultimo_erro).__name__}: {str(ultimo_erro)[:200]}"
         ) from ultimo_erro
 
     @staticmethod
