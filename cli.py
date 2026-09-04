@@ -628,6 +628,80 @@ def comando_importar(args) -> int:
     return 0
 
 
+# ------------------------------------------------------------------- rastrear
+
+
+def comando_rastrear(args) -> int:
+    """Acompanha cada sinal coletado ate o desfecho e mede o acerto real."""
+    from glob import glob
+
+    import pandas as pd
+
+    from nucleo import exportacao, rastreio
+
+    provedor, armazenamento = _contexto(args)
+
+    if args.padrao:
+        caminhos = sorted(glob(args.padrao))
+        if not caminhos:
+            raise SystemExit(f"Nenhum arquivo casou com {args.padrao!r}.")
+        print(f"lendo {len(caminhos)} arquivo(s) de observacoes")
+        observacoes = exportacao.ler(caminhos)
+    else:
+        print("lendo observacoes do banco")
+        observacoes = armazenamento.observacoes()
+        if not observacoes.empty:
+            observacoes["vela"] = pd.to_datetime(
+                observacoes["vela_ms"], unit="ms", utc=True
+            )
+
+    if observacoes.empty:
+        raise SystemExit(
+            "Nenhuma observacao encontrada. Rode 'monitorar' ou 'importar' antes."
+        )
+
+    sinais = rastreio.preparar_observacoes(observacoes)
+    print(
+        f"{len(observacoes)} observacoes | {len(sinais)} sao sinal com stop e alvo"
+    )
+    if sinais.empty:
+        raise SystemExit(
+            "Nenhum sinal aproveitavel ainda - so velas sem recomendacao, ou "
+            "sinais gravados antes de o stop e o alvo passarem a ser salvos."
+        )
+
+    print("reconstruindo os desfechos pelo motor do backtest...")
+    trades = rastreio.rastrear(
+        sinais, provedor, armazenamento, _custos(args), _config(args),
+        usar_rede=not args.offline,
+    )
+
+    print()
+    print("=== ASSERTIVIDADE POR SETUP (dados coletados ao vivo) ===")
+    resumo = rastreio.resumir(trades, por="estrategia")
+    print(resumo.to_string(index=False) if not resumo.empty else "  nada fechado ainda")
+
+    if args.detalhe and not trades.empty:
+        print()
+        print("=== POR PAR E TIMEFRAME ===")
+        trades["alvo_detalhe"] = (
+            trades["par"] + " " + trades["timeframe"]
+        )
+        print(rastreio.resumir(trades, por="alvo_detalhe").to_string(index=False))
+
+    print()
+    print(rastreio.texto_do_veredito(trades))
+
+    if args.salvar and not trades.empty:
+        destino = args.salvar
+        trades.to_csv(destino, index=False)
+        print(f"\ntrades gravados em {destino}")
+
+    armazenamento.fechar()
+    return 0
+
+
+
 # ----------------------------------------------------------------------- main
 
 
@@ -720,6 +794,24 @@ def montar_parser() -> argparse.ArgumentParser:
         help="grava tambem em JSONL nesta pasta, um arquivo por mes",
     )
     p.set_defaults(funcao=comando_monitorar)
+
+    p = sub.add_parser("rastrear", help="mede o acerto real dos sinais coletados")
+    p.add_argument("--banco", default=None)
+    p.add_argument("--corretora", default=None)
+    p.add_argument(
+        "--padrao", default=None,
+        help="arquivos JSONL; sem isso, le as observacoes do banco",
+    )
+    p.add_argument("--offline", action="store_true", help="so cache, sem rede")
+    p.add_argument("--detalhe", action="store_true", help="abre por par e timeframe")
+    p.add_argument("--salvar", default=None, metavar="CSV", help="grava os trades")
+    p.add_argument("--taxa", type=float, default=0.001)
+    p.add_argument("--slippage", type=float, default=0.0005)
+    p.add_argument("--max-barras", type=int, default=48, dest="max_barras")
+    p.add_argument("--ambiguidade", default="pessimista", choices=("pessimista", "otimista"))
+    p.add_argument("--dimensionamento", default="risco", choices=("risco", "fixo"))
+    p.add_argument("--risco", type=float, default=0.02)
+    p.set_defaults(funcao=comando_rastrear)
 
     p = sub.add_parser("importar", help="carrega observacoes JSONL no banco local")
     p.add_argument("--banco", default=None)
