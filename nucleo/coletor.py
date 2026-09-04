@@ -46,16 +46,22 @@ def _ultima_vela(quadro: pd.DataFrame, sinais: pd.DataFrame, painel: pd.DataFram
 def coletar(
     pares: list[str],
     timeframes: list[str],
-    estrategia: Estrategia,
+    estrategias: list[Estrategia],
     provedor,
     armazenamento: Armazenamento,
     minutos: int,
     intervalo_segundos: int = 20,
     ao_registrar=None,
 ) -> ResumoColeta:
-    """Acompanha os pares pelo tempo pedido, gravando cada vela fechada."""
+    """Acompanha os pares pelo tempo pedido, gravando cada vela fechada.
+
+    Varias estrategias veem a MESMA vela: o quadro e carregado uma vez por par
+    e timeframe, com o maior aquecimento entre elas, e cada estrategia opina
+    sobre ele. Assim os setups sao comparados sobre exatamente os mesmos dados,
+    sem diferenca de janela mascarando diferenca de metodo.
+    """
     fim = datetime.now(timezone.utc) + timedelta(minutes=minutos)
-    aquecimento = estrategia.barras_de_aquecimento()
+    aquecimento = max(e.barras_de_aquecimento() for e in estrategias)
     resumo = ResumoColeta()
 
     while datetime.now(timezone.utc) < fim:
@@ -77,36 +83,39 @@ def coletar(
                     if quadro.empty:
                         continue
 
-                    sinais = estrategia.gerar_sinais(quadro)
-                    painel = estrategia.painel_indicadores(quadro)
-                    momento, vela, sinal, indicadores = _ultima_vela(
-                        quadro, sinais, painel
-                    )
+                    for estrategia in estrategias:
+                        sinais = estrategia.gerar_sinais(quadro)
+                        painel = estrategia.painel_indicadores(quadro)
+                        momento, vela, sinal, indicadores = _ultima_vela(
+                            quadro, sinais, painel
+                        )
 
-                    nova = armazenamento.registrar_observacao(
-                        provedor.nome,
-                        par,
-                        timeframe,
-                        estrategia.nome,
-                        int(momento.timestamp() * 1000),
-                        vela.to_dict(),
-                        {
-                            "direcao": int(sinal.direcao),
-                            "forca": float(sinal.forca),
-                            "stop": None if pd.isna(sinal.stop) else float(sinal.stop),
-                            "alvo": None if pd.isna(sinal.alvo) else float(sinal.alvo),
-                            "motivo": str(sinal.motivo),
-                        },
-                        indicadores,
-                    )
+                        nova = armazenamento.registrar_observacao(
+                            provedor.nome,
+                            par,
+                            timeframe,
+                            estrategia.nome,
+                            int(momento.timestamp() * 1000),
+                            vela.to_dict(),
+                            {
+                                "direcao": int(sinal.direcao),
+                                "forca": float(sinal.forca),
+                                "stop": None if pd.isna(sinal.stop) else float(sinal.stop),
+                                "alvo": None if pd.isna(sinal.alvo) else float(sinal.alvo),
+                                "motivo": str(sinal.motivo),
+                            },
+                            indicadores,
+                        )
+                        if not nova:
+                            continue
 
-                    if nova:
                         resumo.velas_novas += 1
                         chave = (par, timeframe)
                         resumo.por_alvo[chave] = resumo.por_alvo.get(chave, 0) + 1
                         registro = {
                             "par": par,
                             "timeframe": timeframe,
+                            "estrategia": estrategia.nome,
                             "vela": momento,
                             "fechamento": float(vela.fechamento),
                             "direcao": int(sinal.direcao),
@@ -114,8 +123,8 @@ def coletar(
                         }
                         if int(sinal.direcao) != 0:
                             resumo.sinais.append(registro)
-                        if ao_registrar:
-                            ao_registrar(registro)
+                            if ao_registrar:
+                                ao_registrar(registro)
 
                 except Exception as erro:
                     resumo.erros += 1
@@ -133,7 +142,7 @@ def coletar(
 def conferir_paridade(
     pares: list[str],
     timeframes: list[str],
-    estrategia: Estrategia,
+    estrategias: list[Estrategia],
     provedor,
     armazenamento: Armazenamento,
 ) -> pd.DataFrame:
@@ -144,52 +153,54 @@ def conferir_paridade(
     valor mudar, o caminho ao vivo e o simulado nao sao o mesmo sistema.
     """
     linhas = []
-    aquecimento = estrategia.barras_de_aquecimento()
+    aquecimento = max(e.barras_de_aquecimento() for e in estrategias)
 
     for par in pares:
         for timeframe in timeframes:
-            gravadas = armazenamento.observacoes(par, timeframe)
-            gravadas = gravadas[gravadas.estrategia == estrategia.nome]
-            if gravadas.empty:
-                continue
+            for estrategia in estrategias:
+                gravadas = armazenamento.observacoes(par, timeframe)
+                gravadas = gravadas[gravadas.estrategia == estrategia.nome]
+                if gravadas.empty:
+                    continue
 
-            quadro = carregar(
-                par,
-                timeframe,
-                datetime.now(timezone.utc)
-                - timedelta(milliseconds=duracao_ms(timeframe) * (aquecimento + 200)),
-                provedor=provedor,
-                armazenamento=armazenamento,
-                barras_aquecimento=aquecimento,
-                usar_rede=False,
-            )
-            if quadro.empty:
-                continue
+                quadro = carregar(
+                    par,
+                    timeframe,
+                    datetime.now(timezone.utc)
+                    - timedelta(milliseconds=duracao_ms(timeframe) * (aquecimento + 200)),
+                    provedor=provedor,
+                    armazenamento=armazenamento,
+                    barras_aquecimento=aquecimento,
+                    usar_rede=False,
+                )
+                if quadro.empty:
+                    continue
 
-            sinais = estrategia.gerar_sinais(quadro)
+                sinais = estrategia.gerar_sinais(quadro)
 
-            # DatetimeIndex e nao Series: `.values` de uma Series com fuso
-            # devolve datetime64 sem fuso, e a busca no indice nao casa nada.
-            momentos = pd.DatetimeIndex(
-                pd.to_datetime(gravadas.vela_ms, unit="ms", utc=True)
-            )
-            presentes = momentos.isin(sinais.index)
-            comuns = momentos[presentes]
-            if len(comuns) == 0:
-                continue
+                # DatetimeIndex e nao Series: `.values` de uma Series com fuso
+                # devolve datetime64 sem fuso, e a busca no indice nao casa nada.
+                momentos = pd.DatetimeIndex(
+                    pd.to_datetime(gravadas.vela_ms, unit="ms", utc=True)
+                )
+                presentes = momentos.isin(sinais.index)
+                comuns = momentos[presentes]
+                if len(comuns) == 0:
+                    continue
 
-            ao_vivo = gravadas.loc[presentes, "direcao"].to_numpy(dtype=int)
-            em_lote = sinais.loc[comuns, "direcao"].to_numpy(dtype=int)
-            divergentes = int((ao_vivo != em_lote).sum())
+                ao_vivo = gravadas.loc[presentes, "direcao"].to_numpy(dtype=int)
+                em_lote = sinais.loc[comuns, "direcao"].to_numpy(dtype=int)
+                divergentes = int((ao_vivo != em_lote).sum())
 
-            linhas.append(
-                {
-                    "par": par,
-                    "timeframe": timeframe,
-                    "velas_conferidas": len(comuns),
-                    "divergencias": divergentes,
-                    "situacao": "OK" if divergentes == 0 else "DIVERGE",
-                }
-            )
+                linhas.append(
+                    {
+                        "par": par,
+                        "timeframe": timeframe,
+                        "estrategia": estrategia.nome[:28],
+                        "velas_conferidas": len(comuns),
+                        "divergencias": divergentes,
+                        "situacao": "OK" if divergentes == 0 else "DIVERGE",
+                    }
+                )
 
     return pd.DataFrame(linhas)

@@ -493,11 +493,16 @@ def comando_monitorar(args) -> int:
     from nucleo import coletor
 
     provedor, armazenamento = _contexto(args)
-    estrategia = construir(args.estrategia)
+    nomes = list(REGISTRO) if args.estrategia == "todas" else [
+        n.strip() for n in args.estrategia.split(",")
+    ]
+    estrategias = [construir(n) for n in nomes]
     pares = [p.strip() for p in args.pares.split(",")]
     timeframes = [t.strip() for t in args.tfs.split(",")]
 
-    print(f"=== coleta ao vivo | {estrategia.nome} ===")
+    print(f"=== coleta ao vivo | {len(estrategias)} setups ===")
+    for e in estrategias:
+        print(f"  - {e.nome}")
     print(f"pares      : {', '.join(pares)}")
     print(f"timeframes : {', '.join(timeframes)}")
     print(f"duracao    : {args.minutos} min, consultando a cada {args.intervalo}s")
@@ -512,11 +517,11 @@ def comando_monitorar(args) -> int:
         print(
             f"  {registro['vela']:%H:%M} {registro['par']:<10} "
             f"{registro['timeframe']:<4} {registro['fechamento']:>12,.4f}  "
-            f"{rotulo:<7}{marca}"
+            f"{rotulo:<7}{marca}  {registro.get('estrategia','')}"
         )
 
     resumo = coletor.coletar(
-        pares, timeframes, estrategia, provedor, armazenamento,
+        pares, timeframes, estrategias, provedor, armazenamento,
         minutos=args.minutos, intervalo_segundos=args.intervalo, ao_registrar=mostrar,
     )
 
@@ -528,12 +533,13 @@ def comando_monitorar(args) -> int:
             print(f"  {par:<10} {timeframe:<4} {quantidade:>4}")
     print(f"\nsinais emitidos: {len(resumo.sinais)}")
     for sinal in resumo.sinais:
-        print(f"  {sinal['vela']:%H:%M} {sinal['par']} {sinal['timeframe']} "
-              f"{'COMPRA' if sinal['direcao'] > 0 else 'VENDA'} ({sinal['forca']:.0%})")
+        print(f"  {sinal['vela']:%H:%M} {sinal['par']:<10} {sinal['timeframe']:<4} "
+              f"{'COMPRA' if sinal['direcao'] > 0 else 'VENDA':<7} "
+              f"({sinal['forca']:.0%})  {sinal['estrategia']}")
 
     print("\n--- paridade ao vivo x backtest ---")
     paridade = coletor.conferir_paridade(
-        pares, timeframes, estrategia, provedor, armazenamento
+        pares, timeframes, estrategias, provedor, armazenamento
     )
     if paridade.empty:
         print("  nada a conferir ainda.")
@@ -627,7 +633,10 @@ def montar_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("monitorar", help="coleta ao vivo com dados reais, sem operar")
     comuns(p, com_estrategia=False)
-    p.add_argument("--estrategia", default="confluencia", choices=ESTRATEGIAS)
+    p.add_argument(
+        "--estrategia", default="todas",
+        help="'todas', ou nomes separados por virgula: " + ", ".join(ESTRATEGIAS),
+    )
     p.add_argument("--pares", default="BTC/USDT,ETH/USDT,SOL/USDT")
     p.add_argument("--tfs", default="1m,5m,15m", help="timeframes, separados por virgula")
     p.add_argument("--minutos", type=int, default=60)
