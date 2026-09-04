@@ -126,9 +126,33 @@ entre empatar e perder depois de custos em cripto líquida. A entrega deste
 projeto não são essas duas estratégias — é o aparato que mede qualquer ideia
 antes de ela custar dinheiro.
 
-O banco guarda **MFE e MAE** de cada trade (o máximo a favor e o máximo contra
-antes da saída). É por ali que vale continuar: eles dizem, com dado realizado, se
-o stop está apertado demais ou o alvo longe demais, em vez de palpite.
+### Calibragem: o que o MFE/MAE mostrou
+
+`python cli.py calibrar` converte a excursão de cada trade em múltiplos de risco.
+Nos mesmos 805 trades:
+
+- O **stop não** está apertado: só 21% dos vencedores chegaram a passar de 0,7R
+  contra antes de virar.
+- O **alvo não** está longe: os vencedores capturam 81% da excursão favorável.
+- **45% dos perdedores estiveram acima de +0,5R antes de morrer** (mediana
+  +0,44R). Parecia o vazamento óbvio.
+
+A hipótese natural — mover o stop para o empate depois de um lucro mínimo — foi
+implementada e medida. **Piora:**
+
+| Gatilho | Acerto (5 pares dev) | Fator de lucro | Fator nos 5 pares novos |
+|---|---|---|---|
+| desligado | 45,0% | **1,09** | 0,77 |
+| 0,3R | 19,3% | 0,90 | 0,80 |
+| 0,5R | 26,0% | 0,93 | 0,73 |
+| 1,0R | 37,0% | 0,99 | 0,78 |
+
+O motivo aparece na taxa de acerto: os vencedores **retraem pela mesma faixa** em
+que os perdedores viram. No instante do gatilho não há como separar uns dos
+outros, e mover o stop mata os dois. Fica desligado por padrão.
+
+Vale como exemplo do que o projeto faz: uma melhoria plausível, com dado
+aparentemente sustentando, medida em dez pares — e reprovada nos dois conjuntos.
 
 ---
 
