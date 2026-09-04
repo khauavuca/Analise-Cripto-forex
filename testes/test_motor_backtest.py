@@ -225,6 +225,57 @@ class TestEstadoDaPosicao:
         assert motor.executar(quadro, sinais, SEM_CUSTO, LONGO_PRAZO).trades.empty
 
 
+class TestStopNoEmpate:
+    """Sobe o stop para a entrada depois de um lucro minimo."""
+
+    def cenario(self):
+        # Entrada a 100, stop a 90 (risco de 10%). A barra 2 sobe ate 106
+        # (0,6R a favor) e a barra 3 volta para 95.
+        return montar(
+            [
+                (100, 101, 99, 100),
+                (100, 101, 99, 100),
+                (100, 106, 99, 105),
+                (105, 106, 95, 96),
+                (96, 97, 95, 96),
+            ]
+        )
+
+    def test_sem_gatilho_o_trade_sobrevive(self):
+        quadro = self.cenario()
+        sinais = sinal_em(quadro, 0, COMPRA, stop=90.0, alvo=200.0)
+        trades = motor.executar(quadro, sinais, SEM_CUSTO, LONGO_PRAZO).trades
+        # 95 nunca toca 90, entao so o fim dos dados fecha a posicao.
+        assert trades.iloc[0].motivo_saida == motor.MOTIVO_FIM
+
+    def test_com_gatilho_sai_no_empate(self):
+        quadro = self.cenario()
+        sinais = sinal_em(quadro, 0, COMPRA, stop=90.0, alvo=200.0)
+        config = ConfigExecucao(max_barras_no_trade=10_000, gatilho_empate=0.5)
+
+        trade = motor.executar(quadro, sinais, SEM_CUSTO, config).trades.iloc[0]
+        assert trade.motivo_saida == motor.MOTIVO_STOP
+        assert trade.preco_saida == pytest.approx(100.0), "sai no preco de entrada"
+        assert trade.retorno_bruto_pct == pytest.approx(0.0)
+
+    def test_r_continua_medido_pelo_risco_original(self):
+        """Se R usasse o stop movido, a unidade encolheria e inflaria tudo."""
+        quadro = self.cenario()
+        sinais = sinal_em(quadro, 0, COMPRA, stop=90.0, alvo=200.0)
+        config = ConfigExecucao(max_barras_no_trade=10_000, gatilho_empate=0.5)
+
+        trade = motor.executar(quadro, sinais, SEM_CUSTO, config).trades.iloc[0]
+        assert trade.multiplo_r == pytest.approx(0.0)
+        assert trade.stop == 90.0, "o trade registra o stop com que nasceu"
+
+    def test_gatilho_alto_demais_nao_dispara(self):
+        quadro = self.cenario()
+        sinais = sinal_em(quadro, 0, COMPRA, stop=90.0, alvo=200.0)
+        config = ConfigExecucao(max_barras_no_trade=10_000, gatilho_empate=2.0)
+        trades = motor.executar(quadro, sinais, SEM_CUSTO, config).trades
+        assert trades.iloc[0].motivo_saida == motor.MOTIVO_FIM
+
+
 class TestMultiploR:
     def test_r_bate_com_a_distancia_do_stop(self):
         quadro = montar(

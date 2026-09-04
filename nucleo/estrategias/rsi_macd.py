@@ -77,24 +77,50 @@ class EstrategiaRsiMacd(Estrategia):
             + 20
         )
 
-    def gerar_sinais(self, quadro: pd.DataFrame) -> pd.DataFrame:
+    def painel_indicadores(self, quadro: pd.DataFrame) -> pd.DataFrame:
+        """Todos os valores que a estrategia enxerga, barra a barra.
+
+        Fica separado de `gerar_sinais` para que o acompanhamento ao vivo possa
+        registrar o estado completo do mercado, e nao so a decisao final. Sem
+        isso, um sinal que nao veio e uma caixa preta: nao da para saber se o
+        RSI passou perto do gatilho ou nem chegou perto.
+        """
         p = self.p
         fechamento = quadro["fechamento"]
 
-        rsi = ind.indice_forca_relativa(fechamento, p.periodo_rsi)
         linhas = ind.macd(fechamento, p.macd_rapida, p.macd_lenta, p.macd_sinal)
         curta = ind.media_movel_simples(fechamento, p.sma_curta)
         media = ind.media_movel_simples(fechamento, p.sma_media)
         longa = ind.media_movel_simples(fechamento, p.sma_longa)
         canal = ind.canal_donchian(quadro["maxima"], quadro["minima"], p.periodo_canal)
-        atr = ind.faixa_verdadeira_media(
-            quadro["maxima"], quadro["minima"], fechamento, p.periodo_atr
-        )
 
         # Tendencia pelo alinhamento das medias: +1 alta, -1 baixa, 0 lateral.
         tendencia = pd.Series(NEUTRO, index=quadro.index, dtype="int8")
         tendencia[(curta > media) & (media > longa)] = COMPRA
         tendencia[(curta < media) & (media < longa)] = VENDA
+
+        return pd.DataFrame(
+            {
+                "rsi": ind.indice_forca_relativa(fechamento, p.periodo_rsi),
+                "macd": linhas["macd"],
+                "macd_sinal": linhas["sinal"],
+                "macd_histograma": linhas["histograma"],
+                "sma_curta": curta,
+                "sma_media": media,
+                "sma_longa": longa,
+                "tendencia": tendencia,
+                "atr": ind.faixa_verdadeira_media(
+                    quadro["maxima"], quadro["minima"], fechamento, p.periodo_atr
+                ),
+                "suporte": canal["suporte"],
+                "resistencia": canal["resistencia"],
+            }
+        )
+
+    def gerar_sinais(self, quadro: pd.DataFrame) -> pd.DataFrame:
+        p = self.p
+        fechamento = quadro["fechamento"]
+        painel = self.painel_indicadores(quadro)
 
         # Todos os indicadores precisam estar prontos, nao so os do gatilho.
         # Sem esta mascara o filtro de tendencia falha aberto durante o
@@ -103,24 +129,24 @@ class EstrategiaRsiMacd(Estrategia):
         # operariam sem filtro nenhum. E a mesma armadilha do codigo original,
         # que pedia 100 velas e calculava media de 200.
         pronto = (
-            rsi.notna()
-            & linhas["sinal"].notna()
-            & longa.notna()
-            & canal["resistencia"].notna()
-            & atr.notna()
+            painel["rsi"].notna()
+            & painel["macd_sinal"].notna()
+            & painel["sma_longa"].notna()
+            & painel["resistencia"].notna()
+            & painel["atr"].notna()
         )
 
         quer_comprar = (
             pronto
-            & (rsi < p.rsi_compra)
-            & (linhas["macd"] > linhas["sinal"])
-            & (tendencia != VENDA)
+            & (painel["rsi"] < p.rsi_compra)
+            & (painel["macd"] > painel["macd_sinal"])
+            & (painel["tendencia"] != VENDA)
         )
         quer_vender = (
             pronto
-            & (rsi > p.rsi_venda)
-            & (linhas["macd"] < linhas["sinal"])
-            & (tendencia != COMPRA)
+            & (painel["rsi"] > p.rsi_venda)
+            & (painel["macd"] < painel["macd_sinal"])
+            & (painel["tendencia"] != COMPRA)
         )
 
         direcao = pd.Series(
@@ -133,15 +159,15 @@ class EstrategiaRsiMacd(Estrategia):
 
         sinais = quadro_sinais(quadro.index)
         sinais["direcao"] = direcao
-        sinais["forca"] = self._forca(rsi, tendencia, direcao)
+        sinais["forca"] = self._forca(painel["rsi"], painel["tendencia"], direcao)
 
-        folga = atr * p.folga_atr
+        folga = painel["atr"] * p.folga_atr
         comprando = direcao == COMPRA
         vendendo = direcao == VENDA
-        sinais.loc[comprando, "stop"] = (canal["suporte"] - folga)[comprando]
-        sinais.loc[comprando, "alvo"] = canal["resistencia"][comprando]
-        sinais.loc[vendendo, "stop"] = (canal["resistencia"] + folga)[vendendo]
-        sinais.loc[vendendo, "alvo"] = canal["suporte"][vendendo]
+        sinais.loc[comprando, "stop"] = (painel["suporte"] - folga)[comprando]
+        sinais.loc[comprando, "alvo"] = painel["resistencia"][comprando]
+        sinais.loc[vendendo, "stop"] = (painel["resistencia"] + folga)[vendendo]
+        sinais.loc[vendendo, "alvo"] = painel["suporte"][vendendo]
 
         sinais.loc[comprando, "motivo"] = "rsi baixo + macd virando para cima"
         sinais.loc[vendendo, "motivo"] = "rsi alto + macd virando para baixo"
@@ -161,7 +187,11 @@ class EstrategiaRsiMacd(Estrategia):
         extremo = np.where(
             direcao == COMPRA,
             (self.p.rsi_compra - rsi) / self.p.rsi_compra,
-            np.where(direcao == VENDA, (rsi - self.p.rsi_venda) / (100 - self.p.rsi_venda), 0.0),
+            np.where(
+                direcao == VENDA,
+                (rsi - self.p.rsi_venda) / (100 - self.p.rsi_venda),
+                0.0,
+            ),
         )
         base = 0.5 + 0.35 * np.clip(extremo, 0.0, 1.0)
         alinhado = (direcao != NEUTRO) & (direcao == tendencia)

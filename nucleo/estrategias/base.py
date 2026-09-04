@@ -86,6 +86,15 @@ class Estrategia(ABC):
         """
         return 200
 
+    def painel_indicadores(self, quadro: pd.DataFrame) -> pd.DataFrame:
+        """Tudo que a estrategia enxerga, barra a barra.
+
+        Serve ao acompanhamento ao vivo: sem isso, uma barra sem sinal e uma
+        caixa preta - nao da para saber se o gatilho passou perto ou nem chegou
+        perto. Devolve quadro vazio por padrao.
+        """
+        return pd.DataFrame(index=quadro.index)
+
     @abstractmethod
     def gerar_sinais(self, quadro: pd.DataFrame) -> pd.DataFrame:
         """Colunas: direcao (-1/0/1), forca (0..1), stop, alvo, motivo."""

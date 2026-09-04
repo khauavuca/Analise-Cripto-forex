@@ -54,18 +54,34 @@ class EstrategiaCruzamentoEma(Estrategia):
     def barras_de_aquecimento(self) -> int:
         return max(self.p.ema_lenta * 3, self.p.periodo_adx * 5, self.p.periodo_atr * 5) + 20
 
+    def painel_indicadores(self, quadro: pd.DataFrame) -> pd.DataFrame:
+        p = self.p
+        fechamento = quadro["fechamento"]
+        direcional = ind.indice_direcional_medio(
+            quadro["maxima"], quadro["minima"], fechamento, p.periodo_adx
+        )
+        return pd.DataFrame(
+            {
+                "ema_rapida": ind.media_movel_exponencial(fechamento, p.ema_rapida),
+                "ema_lenta": ind.media_movel_exponencial(fechamento, p.ema_lenta),
+                "adx": direcional["adx"],
+                "di_mais": direcional["di_mais"],
+                "di_menos": direcional["di_menos"],
+                "atr": ind.faixa_verdadeira_media(
+                    quadro["maxima"], quadro["minima"], fechamento, p.periodo_atr
+                ),
+            }
+        )
+
     def gerar_sinais(self, quadro: pd.DataFrame) -> pd.DataFrame:
         p = self.p
         fechamento = quadro["fechamento"]
+        painel = self.painel_indicadores(quadro)
 
-        rapida = ind.media_movel_exponencial(fechamento, p.ema_rapida)
-        lenta = ind.media_movel_exponencial(fechamento, p.ema_lenta)
-        atr = ind.faixa_verdadeira_media(
-            quadro["maxima"], quadro["minima"], fechamento, p.periodo_atr
-        )
-        adx = ind.indice_direcional_medio(
-            quadro["maxima"], quadro["minima"], fechamento, p.periodo_adx
-        )["adx"]
+        rapida = painel["ema_rapida"]
+        lenta = painel["ema_lenta"]
+        atr = painel["atr"]
+        adx = painel["adx"]
 
         # ADX mede forca de tendencia sem dizer a direcao. Cruzamento de medias
         # em mercado lateral e uma maquina de gerar sinal falso e pagar taxa.

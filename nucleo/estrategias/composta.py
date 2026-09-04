@@ -86,6 +86,15 @@ class EstrategiaComposta(Estrategia):
     def barras_de_aquecimento(self) -> int:
         return max(estrategia.barras_de_aquecimento() for estrategia, _ in self.componentes)
 
+    def painel_indicadores(self, quadro: pd.DataFrame) -> pd.DataFrame:
+        """Junta o painel de cada componente, prefixado pelo nome dele."""
+        paineis = []
+        for posicao, (estrategia, _) in enumerate(self.componentes):
+            painel = estrategia.painel_indicadores(quadro)
+            prefixo = f"c{posicao}_"
+            paineis.append(painel.rename(columns=lambda nome: f"{prefixo}{nome}"))
+        return pd.concat(paineis, axis=1) if paineis else pd.DataFrame(index=quadro.index)
+
     def gerar_sinais(self, quadro: pd.DataFrame) -> pd.DataFrame:
         partes = [
             (estrategia.gerar_sinais(quadro), peso)

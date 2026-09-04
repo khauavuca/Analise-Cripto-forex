@@ -394,6 +394,122 @@ def comando_walkforward(args) -> int:
     return 0
 
 
+# ------------------------------------------------------------------- calibrar
+
+
+def comando_calibrar(args) -> int:
+    from nucleo.backtest import calibragem
+
+    _, armazenamento = _contexto(args)
+    trades = armazenamento.trades(args.filtro)
+    if trades.empty:
+        raise SystemExit(
+            "Nenhum trade gravado. Rode 'backtest --salvar' antes para popular "
+            "a tabela resultados_sinal."
+        )
+
+    quadro = calibragem.preparar(trades)
+    print(f"=== calibragem de stop e alvo | {len(quadro)} trades ===\n")
+    print(calibragem.resumo_excursao(quadro).to_string(index=False))
+    print()
+    print(calibragem.relatorio(quadro))
+
+    print("\n\nEXPECTANCIA POR COMBINACAO (R por trade)")
+    tabela = calibragem.tabela_calibragem(quadro)
+    print(tabela.to_string(index=False))
+    print(
+        "\n  'extrapolado' e a fatia de trades cujo caminho nao chegamos a observar\n"
+        "  ate esse nivel - um stop mais largo que o original nao pode ser avaliado\n"
+        "  num trade que foi estopado. So as linhas com 'confiavel = sim' sustentam\n"
+        "  conclusao; as outras sao chute com aparencia de conta."
+    )
+
+    confiaveis = tabela[tabela.confiavel == "sim"]
+    if not confiaveis.empty:
+        melhor = confiaveis.loc[confiaveis.expectancia_R.idxmax()]
+        print(
+            f"\n  Melhor combinacao confiavel: stop {melhor.stop_R}R / alvo "
+            f"{melhor.alvo_R}R -> {melhor.expectancia_R:+.3f} R por trade."
+        )
+        print(
+            "  Isto e uma hipotese, nao um resultado: reconfigure a estrategia com\n"
+            "  esses niveis e rode 'backtest' e 'validar' de novo. Escolher a melhor\n"
+            "  celula de uma tabela e depois reportar ela e otimizacao circular."
+        )
+
+    armazenamento.fechar()
+    return 0
+
+
+# ------------------------------------------------------------------ monitorar
+
+
+def comando_monitorar(args) -> int:
+    from nucleo import coletor
+
+    provedor, armazenamento = _contexto(args)
+    estrategia = construir(args.estrategia)
+    pares = [p.strip() for p in args.pares.split(",")]
+    timeframes = [t.strip() for t in args.tfs.split(",")]
+
+    print(f"=== coleta ao vivo | {estrategia.nome} ===")
+    print(f"pares      : {', '.join(pares)}")
+    print(f"timeframes : {', '.join(timeframes)}")
+    print(f"duracao    : {args.minutos} min, consultando a cada {args.intervalo}s")
+    print("NENHUMA ordem sera enviada. So leitura de mercado e gravacao.\n")
+
+    def mostrar(registro: dict) -> None:
+        if "erro" in registro:
+            print(f"  ! {registro['erro']}")
+            return
+        rotulo = {1: "COMPRA", -1: "VENDA", 0: "-"}[registro["direcao"]]
+        marca = "  <<<" if registro["direcao"] != 0 else ""
+        print(
+            f"  {registro['vela']:%H:%M} {registro['par']:<10} "
+            f"{registro['timeframe']:<4} {registro['fechamento']:>12,.4f}  "
+            f"{rotulo:<7}{marca}"
+        )
+
+    resumo = coletor.coletar(
+        pares, timeframes, estrategia, provedor, armazenamento,
+        minutos=args.minutos, intervalo_segundos=args.intervalo, ao_registrar=mostrar,
+    )
+
+    print(f"\n--- coleta encerrada ---")
+    print(f"ciclos {resumo.ciclos} | velas novas {resumo.velas_novas} | erros {resumo.erros}")
+    if resumo.por_alvo:
+        print("\nvelas por alvo:")
+        for (par, timeframe), quantidade in sorted(resumo.por_alvo.items()):
+            print(f"  {par:<10} {timeframe:<4} {quantidade:>4}")
+    print(f"\nsinais emitidos: {len(resumo.sinais)}")
+    for sinal in resumo.sinais:
+        print(f"  {sinal['vela']:%H:%M} {sinal['par']} {sinal['timeframe']} "
+              f"{'COMPRA' if sinal['direcao'] > 0 else 'VENDA'} ({sinal['forca']:.0%})")
+
+    print("\n--- paridade ao vivo x backtest ---")
+    paridade = coletor.conferir_paridade(
+        pares, timeframes, estrategia, provedor, armazenamento
+    )
+    if paridade.empty:
+        print("  nada a conferir ainda.")
+    else:
+        print(paridade.to_string(index=False))
+        if (paridade.divergencias == 0).all():
+            print(
+                "\n  Os dois caminhos concordam em todas as velas: decidir ao vivo\n"
+                "  e decidir no backtest produzem o mesmo sinal."
+            )
+        else:
+            print(
+                "\n  !! DIVERGENCIA. O caminho ao vivo e o simulado nao sao o mesmo\n"
+                "  sistema - qualquer metrica de backtest deixa de valer ate isso ser\n"
+                "  explicado."
+            )
+
+    armazenamento.fechar()
+    return 0
+
+
 # ----------------------------------------------------------------------- main
 
 
@@ -457,6 +573,21 @@ def montar_parser() -> argparse.ArgumentParser:
     de_execucao(p)
     p.add_argument("--repeticoes", type=int, default=200)
     p.set_defaults(funcao=comando_validar)
+
+    p = sub.add_parser("calibrar", help="usa MFE/MAE dos trades para calibrar stop e alvo")
+    p.add_argument("--banco", default=None)
+    p.add_argument("--corretora", default=None)
+    p.add_argument("--filtro", default=None, help="restringe a uma estrategia")
+    p.set_defaults(funcao=comando_calibrar)
+
+    p = sub.add_parser("monitorar", help="coleta ao vivo com dados reais, sem operar")
+    comuns(p, com_estrategia=False)
+    p.add_argument("--estrategia", default="confluencia", choices=ESTRATEGIAS)
+    p.add_argument("--pares", default="BTC/USDT,ETH/USDT,SOL/USDT")
+    p.add_argument("--tfs", default="1m,5m,15m", help="timeframes, separados por virgula")
+    p.add_argument("--minutos", type=int, default=60)
+    p.add_argument("--intervalo", type=int, default=20, help="segundos entre consultas")
+    p.set_defaults(funcao=comando_monitorar)
 
     p = sub.add_parser("walkforward", help="otimiza no treino, mede no que veio depois")
     comuns(p)

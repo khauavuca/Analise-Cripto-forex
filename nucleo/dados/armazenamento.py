@@ -15,6 +15,7 @@ varredura por faixa - criptografar mataria justamente isso.
 """
 from __future__ import annotations
 
+import json
 import os
 import sqlite3
 from datetime import datetime
@@ -77,11 +78,39 @@ CREATE TABLE IF NOT EXISTS resultados_sinal (
     multiplo_r          REAL,
     mfe_pct             REAL,
     mae_pct             REAL,
-    ambiguo             INTEGER NOT NULL DEFAULT 0
+    ambiguo             INTEGER NOT NULL DEFAULT 0,
+    stop                REAL,
+    alvo                REAL,
+    fracao              REAL
 );
 
 CREATE INDEX IF NOT EXISTS idx_resultados_execucao
     ON resultados_sinal (execucao_id);
+
+CREATE TABLE IF NOT EXISTS observacoes (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    observado_em TEXT    NOT NULL,
+    corretora    TEXT    NOT NULL,
+    par          TEXT    NOT NULL,
+    timeframe    TEXT    NOT NULL,
+    estrategia   TEXT    NOT NULL,
+    vela_ms      INTEGER NOT NULL,
+    abertura     REAL,
+    maxima       REAL,
+    minima       REAL,
+    fechamento   REAL,
+    volume       REAL,
+    direcao      INTEGER NOT NULL,
+    forca        REAL,
+    stop         REAL,
+    alvo         REAL,
+    motivo       TEXT,
+    indicadores  TEXT,
+    UNIQUE (corretora, par, timeframe, estrategia, vela_ms)
+);
+
+CREATE INDEX IF NOT EXISTS idx_observacoes_vela
+    ON observacoes (par, timeframe, vela_ms);
 """
 
 _COLUNAS_INSERCAO = (
@@ -98,8 +127,34 @@ class Armazenamento:
         self.conexao = sqlite3.connect(self.caminho)
         self.conexao.execute("PRAGMA journal_mode=WAL")
         self.conexao.execute("PRAGMA synchronous=NORMAL")
+        # O coletor ao vivo e a CLI acessam o mesmo banco ao mesmo tempo. Sem
+        # espera, a segunda escrita concorrente falha na hora com "database is
+        # locked"; com WAL, cinco segundos resolvem qualquer disputa real.
+        self.conexao.execute("PRAGMA busy_timeout=5000")
         self.conexao.executescript(ESQUEMA)
+        self._migrar()
         self.conexao.commit()
+
+    def _migrar(self) -> None:
+        """Acrescenta colunas que versoes anteriores do banco nao tinham.
+
+        `CREATE TABLE IF NOT EXISTS` nao altera tabela existente, entao um
+        banco criado antes continuaria sem as colunas novas e a leitura
+        quebraria em quem ja tem dados gravados.
+        """
+        novas = {
+            "resultados_sinal": {"stop": "REAL", "alvo": "REAL", "fracao": "REAL"},
+        }
+        for tabela, colunas in novas.items():
+            existentes = {
+                linha[1]
+                for linha in self.conexao.execute(f"PRAGMA table_info({tabela})")
+            }
+            for coluna, tipo in colunas.items():
+                if coluna not in existentes:
+                    self.conexao.execute(
+                        f"ALTER TABLE {tabela} ADD COLUMN {coluna} {tipo}"
+                    )
 
     def __enter__(self) -> "Armazenamento":
         return self
@@ -267,6 +322,9 @@ class Armazenamento:
                 None if pd.isna(t.mfe_pct) else float(t.mfe_pct),
                 None if pd.isna(t.mae_pct) else float(t.mae_pct),
                 int(bool(t.ambiguo)),
+                None if pd.isna(t.stop) else float(t.stop),
+                None if pd.isna(t.alvo) else float(t.alvo),
+                None if pd.isna(t.fracao) else float(t.fracao),
             )
             for t in trades.itertuples()
         ]
@@ -275,11 +333,80 @@ class Armazenamento:
                 "INSERT INTO resultados_sinal (execucao_id, estrategia, par, "
                 "timeframe, direcao, entrada_ms, preco_entrada, saida_ms, "
                 "preco_saida, motivo_saida, barras_no_trade, retorno_bruto_pct, "
-                "retorno_liquido_pct, multiplo_r, mfe_pct, mae_pct, ambiguo) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "retorno_liquido_pct, multiplo_r, mfe_pct, mae_pct, ambiguo, "
+                "stop, alvo, fracao) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 linhas,
             )
         return len(linhas)
+
+
+    # ------------------------------------------------------------ observacoes
+
+    def registrar_observacao(
+        self,
+        corretora: str,
+        par: str,
+        timeframe: str,
+        estrategia: str,
+        vela_ms: int,
+        vela: dict,
+        sinal: dict,
+        indicadores: dict,
+    ) -> bool:
+        """Grava o estado completo de uma vela fechada. True se ela era nova.
+
+        A chave unica por (corretora, par, timeframe, estrategia, vela) faz com
+        que reconsultar a mesma vela nao duplique nada - o coletor pode rodar
+        de 15 em 15 segundos sem inflar a base.
+        """
+        with self.conexao:
+            cursor = self.conexao.execute(
+                "INSERT OR IGNORE INTO observacoes (observado_em, corretora, par, "
+                "timeframe, estrategia, vela_ms, abertura, maxima, minima, "
+                "fechamento, volume, direcao, forca, stop, alvo, motivo, indicadores) "
+                "VALUES (datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    corretora, par, timeframe, estrategia, int(vela_ms),
+                    vela.get("abertura"), vela.get("maxima"), vela.get("minima"),
+                    vela.get("fechamento"), vela.get("volume"),
+                    int(sinal.get("direcao", 0)), sinal.get("forca"),
+                    sinal.get("stop"), sinal.get("alvo"), sinal.get("motivo"),
+                    json.dumps(indicadores, default=_json_seguro),
+                ),
+            )
+        return cursor.rowcount > 0
+
+    def observacoes(
+        self, par: str | None = None, timeframe: str | None = None
+    ) -> pd.DataFrame:
+        consulta = "SELECT * FROM observacoes"
+        filtros, parametros = [], []
+        if par:
+            filtros.append("par = ?")
+            parametros.append(par)
+        if timeframe:
+            filtros.append("timeframe = ?")
+            parametros.append(timeframe)
+        if filtros:
+            consulta += " WHERE " + " AND ".join(filtros)
+        consulta += " ORDER BY par, timeframe, vela_ms"
+        return pd.read_sql_query(consulta, self.conexao, params=parametros)
+
+    def trades(self, estrategia: str | None = None) -> pd.DataFrame:
+        consulta = "SELECT * FROM resultados_sinal"
+        parametros: list = []
+        if estrategia:
+            consulta += " WHERE estrategia = ?"
+            parametros.append(estrategia)
+        return pd.read_sql_query(consulta, self.conexao, params=parametros)
+
+
+def _json_seguro(valor):
+    """Deixa o json.dumps engolir NaN, numpy e Timestamp sem quebrar."""
+    if isinstance(valor, float) and pd.isna(valor):
+        return None
+    return str(valor)
 
 
 def unir_intervalos(intervalos: list[tuple[int, int]]) -> list[tuple[int, int]]:

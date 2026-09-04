@@ -91,6 +91,9 @@ class ConfigExecucao:
     fracao_por_trade: float = 1.0
     risco_por_trade: float = 0.02
     exposicao_maxima: float = 1.0
+    # Move o stop para o preco de entrada assim que o trade acumular este
+    # tanto de lucro, medido em multiplos do risco. None desliga.
+    gatilho_empate: float | None = None
 
 
 @dataclass
@@ -111,6 +114,8 @@ class _Posicao:
     forca: float
     fracao: float
     motivo: str
+    stop_original: float = 0.0
+    empatado: bool = False
     maior_favor: float = 0.0
     maior_contra: float = 0.0
 
@@ -160,8 +165,13 @@ def executar(
         tinha_posicao = posicao is not None
 
         if posicao is not None:
-            posicao = _atualizar_extremos(posicao, maximas[i], minimas[i])
+            # A saida e avaliada com o stop que valia no FIM da barra anterior.
+            # Mover o stop usando a maxima desta barra e logo em seguida testar
+            # esse stop contra a minima da mesma barra seria decidir com
+            # informacao de dentro da barra - a ordem dos dois eventos nao esta
+            # no OHLC.
             saida = _avaliar_saida(posicao, i, aberturas[i], maximas[i], minimas[i], config)
+            posicao = _atualizar_extremos(posicao, maximas[i], minimas[i])
 
             if saida is not None:
                 preco_saida, motivo_saida, foi_ambiguo = saida
@@ -172,6 +182,8 @@ def executar(
                 trades.append(trade)
                 capital *= 1 + trade["retorno_liquido_pct"] * trade["fracao"]
                 posicao = None
+            else:
+                posicao = _talvez_empatar(posicao, config)
 
         # Nao abre posicao numa barra em que ja havia posicao aberta: a entrada
         # aconteceria na abertura, ou seja, antes da saida que acabou de ocorrer.
@@ -192,10 +204,12 @@ def executar(
                     forca=float(forcas[i]),
                     fracao=fracao,
                     motivo=str(motivos[i]),
+                    stop_original=float(stops[i]),
                 )
                 # A entrada foi na abertura desta barra, entao o que a barra
                 # percorreu depois disso ja conta para MFE e MAE.
                 posicao = _atualizar_extremos(posicao, maximas[i], minimas[i])
+                posicao = _talvez_empatar(posicao, config)
 
         curva[i] = _marcar_a_mercado(capital, posicao, fechamentos[i], custos)
 
@@ -239,6 +253,29 @@ def executar(
         curva_capital=pd.Series(curva, index=momentos, name="capital"),
         diagnosticos=diagnosticos,
     )
+
+
+def _talvez_empatar(posicao: _Posicao, config: ConfigExecucao) -> _Posicao:
+    """Sobe o stop para o preco de entrada depois de um lucro minimo.
+
+    Existe por causa de um numero medido: 45% dos trades perdedores chegaram a
+    mais de 0,5R de lucro antes de virar e ainda pagarem 1R. Se essa reversao
+    for sistematica, empatar converte parte dessas perdas em zero; se nao for,
+    o custo aparece como vencedores mortos no meio do caminho. Quem decide e o
+    backtest, nao a intuicao.
+    """
+    if config.gatilho_empate is None or posicao.empatado:
+        return posicao
+
+    referencia = posicao.stop_original or posicao.stop
+    risco = abs(posicao.preco_entrada - referencia) / posicao.preco_entrada
+    if risco <= 0:
+        return posicao
+
+    if posicao.maior_favor / risco >= config.gatilho_empate:
+        posicao.stop = posicao.preco_entrada
+        posicao.empatado = True
+    return posicao
 
 
 def _atualizar_extremos(posicao: _Posicao, maxima: float, minima: float) -> _Posicao:
@@ -342,7 +379,9 @@ def _fechar(
         - 2 * custos.taxa_por_lado
     )
 
-    risco = abs(entrada_efetiva - posicao.stop)
+    # Sempre o stop original: se o stop moveu para o empate, medir R contra o
+    # stop novo faria a unidade encolher e inflaria o resultado.
+    risco = abs(entrada_efetiva - (posicao.stop_original or posicao.stop))
     multiplo_r = (
         posicao.direcao * (saida_efetiva - entrada_efetiva) / risco
         if risco > 0
@@ -363,7 +402,10 @@ def _fechar(
         "mfe_pct": posicao.maior_favor,
         "mae_pct": posicao.maior_contra,
         "ambiguo": ambiguo,
-        "stop": posicao.stop,
+        # O stop com que o trade nasceu, nao o movido. E dele que sai a unidade
+        # de risco na calibragem; guardar o stop no empate faria o risco virar
+        # zero e o trade sumir da analise.
+        "stop": posicao.stop_original or posicao.stop,
         "alvo": posicao.alvo,
         "forca": posicao.forca,
         "fracao": posicao.fracao,
