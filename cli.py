@@ -21,6 +21,7 @@ from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 
+from nucleo import tempo
 from nucleo.backtest import metricas as met
 from nucleo.backtest import validacao
 from nucleo.backtest.motor import ConfigExecucao, ModeloCustos, executar
@@ -105,12 +106,12 @@ def _contexto(args):
 
 def _periodo(args) -> tuple[datetime, datetime | None]:
     inicio = (
-        datetime.fromisoformat(args.desde).replace(tzinfo=timezone.utc)
+        tempo.inicio_do_dia(args.desde)
         if getattr(args, "desde", None)
         else datetime.now(timezone.utc) - timedelta(days=args.dias)
     )
     fim = (
-        datetime.fromisoformat(args.ate).replace(tzinfo=timezone.utc)
+        tempo.inicio_do_dia(args.ate)
         if getattr(args, "ate", None)
         else None
     )
@@ -172,14 +173,16 @@ def comando_baixar(args) -> int:
             continue
         print(
             f"{par:<12} {len(quadro):>6} velas  "
-            f"{quadro.index[0]:%Y-%m-%d %H:%M} .. {quadro.index[-1]:%Y-%m-%d %H:%M}  "
+            f"{tempo.formatar(quadro.index[0], '%Y-%m-%d %H:%M')} .. "
+            f"{tempo.formatar(quadro.index[-1], '%Y-%m-%d %H:%M')}  "
             f"(no banco: {armazenamento.contar_velas(provedor.nome, par, args.tf)})"
         )
         buracos = armazenamento.buracos(provedor.nome, par, args.tf, duracao_ms(args.tf))
         if not buracos.empty:
             print(f"{'':<12} !! {len(buracos)} buraco(s) na serie gravada:")
             for b in buracos.itertuples():
-                print(f"{'':<15}{b.de:%Y-%m-%d %H:%M} -> {b.ate:%Y-%m-%d %H:%M}  ({b.velas_faltando} velas)")
+                print(f"{'':<15}{tempo.formatar(b.de, '%Y-%m-%d %H:%M')} -> "
+                      f"{tempo.formatar(b.ate, '%Y-%m-%d %H:%M')}  ({b.velas_faltando} velas)")
             print(f"{'':<12}   rode de novo com --reparar para preencher")
     armazenamento.fechar()
     return 0
@@ -199,7 +202,7 @@ def comando_analisar(args) -> int:
     rotulo = {1: "COMPRA", -1: "VENDA", 0: "SEM SINAL"}[int(ultima.direcao)]
 
     print(f"=== {args.par} {args.tf} | {estrategia.nome} ===")
-    print(f"ultima vela fechada : {momento:%Y-%m-%d %H:%M} UTC")
+    print(f"ultima vela fechada : {tempo.formatar(momento, '%Y-%m-%d %H:%M')} ({tempo.rotulo()})")
     print(f"fechamento          : {quadro.fechamento.iloc[-1]:,.2f}")
     print(f"sinal               : {rotulo}")
 
@@ -209,7 +212,7 @@ def comando_analisar(args) -> int:
             print(
                 f"ultimo sinal        : "
                 f"{'COMPRA' if recentes.direcao.iloc[0] > 0 else 'VENDA'} em "
-                f"{recentes.index[0]:%Y-%m-%d %H:%M}"
+                f"{tempo.formatar(recentes.index[0], '%Y-%m-%d %H:%M')}"
             )
         armazenamento.fechar()
         return 0
@@ -519,10 +522,11 @@ def comando_monitorar(args) -> int:
     print(f"timeframes : {', '.join(timeframes)}")
     duracao = "sem prazo (ate ser interrompido)" if args.minutos <= 0 else f"{args.minutos} min"
     print(f"duracao    : {duracao}, consultando a cada {args.intervalo}s")
+    print(f"horarios   : {tempo.rotulo()}")
     print("NENHUMA ordem sera enviada. So leitura de mercado e gravacao.\n")
 
     def mostrar(registro: dict) -> None:
-        agora = datetime.now(timezone.utc).strftime("%d/%m %H:%M:%S")
+        agora = tempo.formatar(datetime.now(timezone.utc), "%d/%m %H:%M:%S")
         if "erro" in registro:
             print(f"  {agora} ! {registro['erro']}", flush=True)
             return
@@ -532,7 +536,7 @@ def comando_monitorar(args) -> int:
         rotulo = {1: "COMPRA", -1: "VENDA", 0: "-"}[registro["direcao"]]
         marca = "  <<<" if registro["direcao"] != 0 else ""
         print(
-            f"  {registro['vela']:%H:%M} {registro['par']:<10} "
+            f"  {tempo.formatar(registro['vela'], '%H:%M')} {registro['par']:<10} "
             f"{registro['timeframe']:<4} {registro['fechamento']:>12,.4f}  "
             f"{rotulo:<7}{marca}  {registro.get('estrategia','')}"
         )
@@ -587,7 +591,7 @@ def comando_monitorar(args) -> int:
             print(f"  {par:<10} {timeframe:<4} {quantidade:>4}")
     print(f"\nsinais emitidos: {len(resumo.sinais)}")
     for sinal in resumo.sinais:
-        print(f"  {sinal['vela']:%H:%M} {sinal['par']:<10} {sinal['timeframe']:<4} "
+        print(f"  {tempo.formatar(sinal['vela'], '%H:%M')} {sinal['par']:<10} {sinal['timeframe']:<4} "
               f"{'COMPRA' if sinal['direcao'] > 0 else 'VENDA':<7} "
               f"({sinal['forca']:.0%})  {sinal['estrategia']}")
 
@@ -817,7 +821,7 @@ def _nomes(args) -> list[str]:
 
 def _quadros(args, provedor, armazenamento, nomes) -> dict:
     inicio = (
-        datetime.fromisoformat(args.desde).replace(tzinfo=timezone.utc)
+        tempo.inicio_do_dia(args.desde)
         if getattr(args, "desde", None)
         else datetime.now(timezone.utc) - timedelta(days=args.dias)
     )
@@ -994,7 +998,8 @@ def comando_decidir(args) -> int:
         filtros=filtros, usar_rede=not args.offline,
     )
 
-    print(f"=== decisao | {datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC | banca "
+    print(f"=== decisao | {tempo.formatar(datetime.now(timezone.utc), '%Y-%m-%d %H:%M')} "
+          f"{tempo.rotulo()} | banca "
           f"{args.moeda} {args.banca:g} | {len(nomes)} setups | {', '.join(timeframes)} ===")
     if not recomendacoes:
         print("Nenhum sinal ativo na ultima vela fechada de nenhum par/timeframe.")
@@ -1034,9 +1039,10 @@ def comando_campanha(args) -> int:
     nomes = _nomes(args)
     estrategias = [construir(n) for n in nomes]
 
-    inicio = datetime.fromisoformat(args.inicio).replace(tzinfo=timezone.utc)
+    # Datas no fuso de quem digita (FUSO_HORARIO, padrao Brasilia); por dentro, UTC.
+    inicio = tempo.inicio_do_dia(args.inicio)
     # --fim e a data do ultimo dia, inclusive: "ate sexta" inclui a sexta inteira.
-    fim = datetime.fromisoformat(args.fim).replace(tzinfo=timezone.utc) + timedelta(days=1)
+    fim = tempo.fim_do_dia(args.fim)
     if fim <= inicio:
         raise SystemExit("--fim precisa ser depois de --inicio.")
 
@@ -1241,7 +1247,8 @@ def montar_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("campanha", help="teste para frente: cada setup gerencia a propria banca")
     p.add_argument("--banco", default=None)
     p.add_argument("--corretora", default=None)
-    p.add_argument("--inicio", required=True, help="AAAA-MM-DD (UTC)")
+    p.add_argument("--inicio", required=True,
+                   help="AAAA-MM-DD, no seu fuso (FUSO_HORARIO, padrao Brasilia)")
     p.add_argument("--fim", required=True, help="AAAA-MM-DD, ultimo dia incluso")
     p.add_argument("--pares", default="BTC/USDT,ETH/USDT,SOL/USDT,BNB/USDT,XRP/USDT")
     p.add_argument("--tfs", default="1h,4h")

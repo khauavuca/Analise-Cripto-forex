@@ -22,6 +22,7 @@ from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 
+from . import tempo
 from .backtest.metricas import intervalo_wilson
 from .backtest.motor import MOTIVO_FIM, ConfigExecucao, ModeloCustos, executar
 from .dados.carregador import carregar
@@ -240,16 +241,21 @@ def _payoff(valor: float) -> str:
     return f"{valor:.2f}".replace(".", ",")
 
 
-def relatorio_simples(resultado: ResultadoCampanha) -> str:
-    """Em portugues claro, para quem nao e do ramo."""
+def relatorio_simples(resultado: ResultadoCampanha, fuso: str | None = None) -> str:
+    """Em portugues claro, para quem nao e do ramo. Horarios no fuso de quem le."""
+    z = tempo.fuso(fuso)
     c = resultado.config
     linhas = [
         "CAMPANHA DE TESTE - dinheiro de mentira, mercado de verdade",
-        f"Periodo: {c.inicio:%d/%m/%Y} ate {c.fim - timedelta(seconds=1):%d/%m/%Y} | "
-        f"atualizado em {resultado.gerado_em:%d/%m %H:%M} UTC",
+        f"Periodo: {tempo.formatar(c.inicio, '%d/%m/%Y', z)} ate "
+        f"{tempo.formatar(c.fim - timedelta(seconds=1), '%d/%m/%Y', z)} | "
+        f"atualizado em {tempo.formatar(resultado.gerado_em, '%d/%m %H:%M', z)} "
+        f"({tempo.rotulo(z)})",
     ]
     if resultado.ultima_vela is not None:
-        linhas.append(f"Ultima vela considerada: {resultado.ultima_vela:%d/%m %H:%M} UTC")
+        linhas.append(
+            f"Ultima vela considerada: {tempo.formatar(resultado.ultima_vela, '%d/%m %H:%M', z)}"
+        )
     linhas += [
         f"Cada trader comecou com {_moeda(c, c.banca)} e gerencia a propria banca "
         f"com as mesmas regras: arrisca {c.regras.risco_por_trade:.0%} por operacao, "
@@ -324,34 +330,39 @@ def relatorio_simples(resultado: ResultadoCampanha) -> str:
         "- 'precisa acertar X para empatar' junta os dois: e o acerto minimo para nao "
         "perder dinheiro com aquele payoff. Trader bom e o que acerta acima disso com folga.",
         "- 'recusadas' sao sinais que as regras de banca barraram.",
+        f"- Horarios no {tempo.rotulo(z)}; {tempo.deslocamento(resultado.gerado_em, z)}. "
+        "O dia, para a perda diaria, vira a meia-noite daqui.",
         "Nenhuma ordem real foi enviada.",
     ]
     return "\n".join(linhas)
 
 
-def para_json(resultado: ResultadoCampanha) -> dict:
+def para_json(resultado: ResultadoCampanha, fuso: str | None = None) -> dict:
+    z = tempo.fuso(fuso)
     c = resultado.config
     ranking = resultado.ranking()
     if not ranking.empty:
         ranking = ranking.replace([math.inf, -math.inf], None)
     return {
-        "gerado_em": resultado.gerado_em.isoformat(timespec="seconds"),
-        "inicio": c.inicio.isoformat(),
-        "fim": c.fim.isoformat(),
+        "fuso": z.key,
+        "gerado_em": tempo.local(resultado.gerado_em, z).isoformat(timespec="seconds"),
+        "inicio": tempo.local(c.inicio, z).isoformat(),
+        "fim": tempo.local(c.fim, z).isoformat(),
         "banca_inicial": c.banca,
         "moeda": c.moeda,
         "pares": list(c.pares),
         "timeframes": list(c.timeframes),
-        "ultima_vela": None if resultado.ultima_vela is None else resultado.ultima_vela.isoformat(),
+        "ultima_vela": None if resultado.ultima_vela is None
+        else tempo.local(resultado.ultima_vela, z).isoformat(),
         "velas_no_periodo": resultado.velas_no_periodo,
         "ranking": ranking.to_dict(orient="records"),
         "traders": {
             t.nome: {
                 "banca_atual": t.saldo,
-                "fechadas": t.carteira.fechamentos.to_dict(orient="records"),
-                "abertas": t.abertas[
+                "fechadas": tempo.quadro_no_fuso(t.carteira.fechamentos, z).to_dict(orient="records"),
+                "abertas": tempo.quadro_no_fuso(t.abertas[
                     [col for col in ("par", "timeframe", "direcao", "entrada", "preco_entrada", "stop", "alvo") if col in t.abertas.columns]
-                ].to_dict(orient="records") if not t.abertas.empty else [],
+                ], z).to_dict(orient="records") if not t.abertas.empty else [],
                 "recusadas": dict(t.carteira.recusas),
             }
             for t in resultado.traders

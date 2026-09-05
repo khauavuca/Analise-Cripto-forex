@@ -25,6 +25,9 @@ env:
   CAMPANHA_FIM: "2026-09-11"
   CAMPANHA_BANCA: "500"
   CAMPANHA_MOEDA: "BRL"
+  # As datas acima e os horarios do relatorio sao neste fuso. O processo
+  # continua em UTC (TZ=UTC nos passos): quem converte e o codigo.
+  FUSO_HORARIO: "America/Sao_Paulo"
 
 # Impede duas execucoes gravando no mesmo arquivo ao mesmo tempo, o que daria
 # conflito no push. A que estiver rodando termina; a nova espera.

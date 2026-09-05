@@ -1,7 +1,7 @@
 """Campanha: so conta o que nasceu dentro dela, e cada trader tem a propria banca."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import numpy as np
 import pandas as pd
@@ -184,6 +184,22 @@ class TestRelatorio:
         trader = SempreCompra("bom", a_cada=40, stop=0.05, alvo=0.02)  # poucas operacoes
         texto = campanha.relatorio_simples(campanha.avaliar(quadros, [trader], config()))
         assert "AINDA E CEDO" in texto
+
+    def test_horarios_no_fuso_de_quem_le(self):
+        quadros = {("X/USDT", "1h"): mercado(subindo=True)}
+        trader = SempreCompra("bom", a_cada=10, stop=0.05, alvo=0.02)
+        agora = datetime(2026, 9, 5, 1, 37, tzinfo=timezone.utc)  # 22:37 do dia 4 aqui
+        resultado = campanha.avaliar(quadros, [trader], config(), agora=agora)
+
+        texto = campanha.relatorio_simples(resultado, fuso="America/Sao_Paulo")
+        assert "atualizado em 04/09 22:37 (horario de Brasilia)" in texto
+        assert "UTC" not in texto.split("Como ler:")[0]
+
+        dados = campanha.para_json(resultado, fuso="America/Sao_Paulo")
+        assert dados["fuso"] == "America/Sao_Paulo"
+        assert dados["gerado_em"] == "2026-09-04T22:37:00-03:00"
+        momento = dados["traders"]["bom"]["fechadas"][0]["momento"]
+        assert momento.utcoffset() == timedelta(hours=-3)
 
     def test_json_serializa(self):
         import json

@@ -23,6 +23,8 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
+from .. import tempo
+
 
 @dataclass(frozen=True)
 class RegrasCarteira:
@@ -36,6 +38,9 @@ class RegrasCarteira:
     sinais_de_pausa: int = 3
     valor_minimo_ordem: float = 1.0
     moeda: str = "USDT"
+    # A perda diaria zera a meia-noite DESTE fuso, nao do UTC: e uma regra de
+    # quem opera, e quem opera esta no Brasil.
+    fuso: str = field(default_factory=lambda: tempo.fuso().key)
 
 
 @dataclass
@@ -60,6 +65,7 @@ class Recusa:
 class Carteira:
     def __init__(self, regras: RegrasCarteira | None = None) -> None:
         self.regras = regras or RegrasCarteira()
+        self._fuso = tempo.fuso(self.regras.fuso)
         self.saldo = self.regras.saldo_inicial
         self.posicoes: dict[object, Posicao] = {}
         self.dia_atual = None
@@ -79,7 +85,7 @@ class Carteira:
         return sum(p.valor for p in self.posicoes.values())
 
     def _virar_dia(self, momento: pd.Timestamp) -> None:
-        dia = momento.date()
+        dia = tempo.dia(momento, self._fuso)
         if dia != self.dia_atual:
             self.dia_atual = dia
             self.saldo_inicio_dia = self.saldo

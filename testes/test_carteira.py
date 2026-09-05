@@ -81,6 +81,21 @@ class TestKillSwitch:
         c.fechar("a", em(1), -0.12)
         assert c.abrir("b", "ETH", "e", 1, em(25), 100, 96) is not None
 
+    def test_o_dia_vira_a_meia_noite_de_brasilia(self):
+        # T0 e meia-noite UTC = 21:00 do dia anterior em Brasilia.
+        c = Carteira(regras(perda_diaria_maxima=0.05, max_posicoes=9, max_por_par=9))
+        c.abrir("a", "BTC", "e", 1, em(0), 100, 96)
+        c.fechar("a", em(1), -0.12)                                        # 22:00 aqui
+        assert c.abrir("b", "ETH", "e", 1, em(2.5), 100, 96) is None      # 23:30, mesmo dia
+        assert c.abrir("c", "SOL", "e", 1, em(3.5), 100, 96) is not None  # 00:30, dia virou
+
+    def test_a_regra_diz_em_que_fuso_o_dia_vira(self):
+        c = Carteira(regras(perda_diaria_maxima=0.05, max_posicoes=9, max_por_par=9, fuso="UTC"))
+        c.abrir("a", "BTC", "e", 1, em(0), 100, 96)
+        c.fechar("a", em(1), -0.12)
+        # Em UTC, 03:30 ainda e o mesmo dia da perda.
+        assert c.abrir("c", "SOL", "e", 1, em(3.5), 100, 96) is None
+
 
 class TestPausa:
     def test_quatro_perdas_seguidas_pulam_os_proximos_sinais(self):

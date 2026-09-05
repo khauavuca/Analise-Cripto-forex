@@ -17,6 +17,7 @@ from datetime import datetime, timedelta, timezone
 import numpy as np
 import pandas as pd
 
+from . import tempo
 from .aprendizado.conjunto import (
     caracteristicas_no_instante,
     contexto_de_mercado,
@@ -75,7 +76,7 @@ def _candidatos(quadro: pd.DataFrame, estrategia: Estrategia, par: str, timefram
     momento = quadro.index[-1]
     preco = float(quadro["fechamento"].iloc[-1])
     rec = Recomendacao(
-        vela=momento.strftime("%Y-%m-%d %H:%M"), par=par, timeframe=timeframe,
+        vela=tempo.formatar(momento, "%Y-%m-%d %H:%M"), par=par, timeframe=timeframe,
         estrategia=estrategia.nome, direcao=int(ultimo.direcao), forca=float(ultimo.forca),
         preco=preco, stop=float(ultimo.stop), alvo=float(ultimo.alvo), motivo=str(ultimo.motivo),
         decisao=ENTRAR,

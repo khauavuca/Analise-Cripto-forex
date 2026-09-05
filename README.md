@@ -282,6 +282,12 @@ python cli.py campanha --inicio 2026-09-05 --fim 2026-09-11 --banca 500 --moeda 
 Ela roda na nuvem junto com a coleta e o relatório fica em
 `dados/campanha/relatorio.md`, atualizado a cada execução.
 
+As datas de `--inicio`/`--fim` e todos os horários do relatório são no
+**horário de Brasília** (`FUSO_HORARIO`, padrão `America/Sao_Paulo`). Por
+dentro tudo continua em UTC, porque as velas da corretora são UTC e a nuvem e
+a sua máquina precisam chegar ao mesmo resultado; a conversão acontece num
+lugar só, `nucleo/tempo.py`.
+
 Dois detalhes de desenho que valem entender:
 
 - **Ela é refeita do zero a cada execução**, a partir das velas reais entre o
@@ -323,6 +329,10 @@ veredito.
   pulava essa checagem e garantia que todo trade sobrevivesse à primeira vela —
   um trader de teste com stop de 0,1% "ganhou" 123% num mercado subindo. Os
   números deste documento foram re-medidos depois da correção.
+- **O dia vira à meia-noite de Brasília, não do UTC.** A perda diária máxima
+  é uma regra de quem opera, e quem opera está no Brasil: uma perda às 22h e
+  outra à 1h da manhã são do mesmo dia. Só a definição de "dia" usa o fuso;
+  o resto dos cálculos segue em UTC.
 - **Agregação 4h com `origin="epoch"`** e completude por contagem. Sem isso a
   grade se desloca conforme a data pedida, e o mesmo backtest dá números
   diferentes. O 4h derivado foi conferido contra o 4h nativo da Binance:
