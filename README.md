@@ -225,6 +225,44 @@ worker_service.py   acompanhamento contínuo (só registra)
 testes/             56 testes
 ```
 
+### A estrutura para a IA de apoio
+
+Quatro peças de backend, cada uma sustentando a seguinte. A IA, quando vier,
+ocupa o lugar do filtro — o resto já existe e já está medido.
+
+| Peça | Comando | O que faz |
+|---|---|---|
+| **Conjunto de treino** | `cli.py conjunto` | Junta o que o sistema via na barra do sinal com o que aconteceu depois. Níveis de preço viram distância relativa; a barra é a do **sinal**, não a da entrada. |
+| **Filtro de ML** | `cli.py filtro` | Aprende, entre os sinais de um setup, quais tendem a vencer. Treinado por walk-forward com purga e comparado a um controle de rótulos embaralhados. |
+| **Carteira** | `cli.py carteira` | Banca compartilhada com posições simultâneas, teto de exposição, perda diária máxima e pausa após sequência de perdas. |
+| **Decisão** | `cli.py decidir` | Varre pares × setups, aplica as regras da carteira (e o filtro, se aprovado) e emite recomendação estruturada — tabela ou JSON. Nenhuma ordem é enviada. |
+
+O que cada peça mostrou ao ser medida:
+
+- **O filtro é honesto sobre si mesmo.** No `ema`, AUC fora da amostra de 0,505 —
+  moeda ao ar — e o veredito é *não usar*. No `donchian`, 0,555 com ganho acima
+  do controle embaralhado: hipótese, não resultado. Sem o controle, os dois
+  pareceriam "melhorar".
+- **As regras da carteira valem mais que o setup.** Os três setups positivos em
+  90 dias: com regras, +55,8% e rebaixamento de −23,8%; **sem regras, +46,3% e
+  rebaixamento de −52,3%**. E juntar os nove na mesma banca dá +2,6%: os
+  perdedores ocupam as vagas dos ganhadores.
+- **Vela a vela é igual a de uma vez.** `testes/test_replay.py` entrega a série
+  uma vela por vez e compara: sinais e dinheiro batem. O motor não espia o
+  futuro, e isso deixa de ser afirmação para ser teste.
+
+Fluxo típico, uma vez por setup:
+
+```bash
+python cli.py conjunto --estrategia donchian --desde 2022-01-01
+python cli.py filtro --conjunto dados/conjuntos/donchian_4h.csv --salvar "modelos/donchian(20,2atr).pkl"
+python cli.py decidir --estrategias donchian,confluencia --filtros modelos
+```
+
+O nome do arquivo do modelo tem que ser o nome do setup com parâmetros
+(`donchian(20,2atr).pkl`), porque é assim que `decidir` sabe a qual setup ele
+pertence.
+
 ### Decisões que sustentam o número
 
 - **Execução na abertura da vela seguinte.** Decide no fechamento de `i`, executa

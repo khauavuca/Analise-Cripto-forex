@@ -32,3 +32,7 @@ logs/
 *.db
 *.sqlite
 encryption_key.key
+
+# artefatos regeneraveis a partir do historico (nao versionar)
+modelos/
+dados/conjuntos/

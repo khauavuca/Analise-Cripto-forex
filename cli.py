@@ -791,6 +791,215 @@ def comando_simular(args) -> int:
 
 
 
+# ------------------------------------------------------------------- conjunto
+
+
+def _pares(args) -> list[str]:
+    return [p.strip() for p in args.pares.split(",") if p.strip()]
+
+
+def _nomes(args) -> list[str]:
+    return list(REGISTRO) if args.estrategias == "todas" else [
+        n.strip() for n in args.estrategias.split(",") if n.strip()
+    ]
+
+
+def _quadros(args, provedor, armazenamento, nomes) -> dict:
+    inicio = (
+        datetime.fromisoformat(args.desde).replace(tzinfo=timezone.utc)
+        if getattr(args, "desde", None)
+        else datetime.now(timezone.utc) - timedelta(days=args.dias)
+    )
+    aquecimento = max(construir(n).barras_de_aquecimento() for n in nomes)
+    return {
+        par: carregar(
+            par, args.tf, inicio, provedor=provedor, armazenamento=armazenamento,
+            barras_aquecimento=aquecimento, usar_rede=not args.offline,
+        )
+        for par in _pares(args)
+    }
+
+
+def comando_conjunto(args) -> int:
+    """Monta o conjunto de treino de um setup a partir do historico."""
+    from nucleo.aprendizado import conjunto as cj
+
+    provedor, armazenamento = _contexto(args)
+    quadros = _quadros(args, provedor, armazenamento, [args.estrategia])
+
+    total = cj.vazio()
+    for par, quadro in quadros.items():
+        if quadro.empty:
+            continue
+        estrategia = construir(args.estrategia)
+        resultado = executar(quadro, estrategia.gerar_sinais(quadro), _custos(args), _config(args))
+        parte = cj.montar(quadro, estrategia, resultado.trades, par=par, timeframe=args.tf)
+        total = total.concatenar(parte)
+        print(f"  {par:<10} {len(parte):>5} exemplos")
+
+    total = total.ordenar_por_tempo()
+    if total.vazio:
+        raise SystemExit("Nenhum trade fechado: nao ha o que aprender.")
+
+    destino = args.saida or f"dados/conjuntos/{args.estrategia}_{args.tf}.csv"
+    cj.salvar_csv(total, destino)
+    print()
+    print(f"{len(total)} exemplos | {total.entradas.shape[1]} colunas | acerto base "
+          f"{total.rotulos.venceu.mean():.1%}")
+    print(f"gravado em {destino}")
+    armazenamento.fechar()
+    return 0
+
+
+# --------------------------------------------------------------------- filtro
+
+
+def comando_filtro(args) -> int:
+    """Avalia o filtro de ML por walk-forward com controle embaralhado."""
+    from nucleo.aprendizado import conjunto as cj
+    from nucleo.aprendizado.filtro import ConfigFiltro, FiltroML, avaliar_walkforward
+
+    conjunto = cj.ler_csv(args.conjunto)
+    if conjunto.vazio:
+        raise SystemExit(f"Conjunto vazio: {args.conjunto}")
+    config = ConfigFiltro(limiar=args.limiar)
+
+    print(f"=== filtro | {len(conjunto)} exemplos | acerto base "
+          f"{conjunto.rotulos.venceu.mean():.1%} | limiar {args.limiar:.0%} ===")
+    print()
+    relatorio = avaliar_walkforward(
+        conjunto, config, meses_teste=args.meses_teste, minimo_treino=args.minimo_treino
+    )
+    if relatorio.janelas:
+        tabela = pd.DataFrame(
+            [
+                {
+                    "corte": j.corte.date(), "treino": j.n_treino, "teste": j.n_teste,
+                    "mantidos": j.mantidos, "auc": round(j.auc, 3),
+                    "R_antes": round(j.r_total_antes, 1), "R_depois": round(j.r_total_depois, 1),
+                    "acerto_antes": f"{j.acerto_antes:.0%}", "acerto_depois": f"{j.acerto_depois:.0%}",
+                }
+                for j in relatorio.janelas
+            ]
+        )
+        print(tabela.to_string(index=False))
+        print()
+    print(relatorio.veredito())
+
+    if args.salvar:
+        filtro = FiltroML(config).treinar(conjunto)
+        filtro.salvar(args.salvar)
+        print()
+        print(f"modelo final treinado em TODO o conjunto e gravado em {args.salvar}")
+        print("(o veredito acima e que diz se ele merece ser usado - o arquivo nao)")
+        print()
+        print("colunas que mais pesam:")
+        print(filtro.importancias(conjunto).head(8).round(4).to_string())
+    return 0
+
+
+# ------------------------------------------------------------------- carteira
+
+
+def comando_carteira(args) -> int:
+    """Passa os setups pela mesma banca, com posicoes simultaneas e regras."""
+    from nucleo.risco.carteira import RegrasCarteira, relatorio, simular_carteira
+
+    provedor, armazenamento = _contexto(args)
+    nomes = _nomes(args)
+    quadros = _quadros(args, provedor, armazenamento, nomes)
+
+    todos = []
+    for nome in nomes:
+        for par, quadro in quadros.items():
+            if quadro.empty:
+                continue
+            resultado = executar(quadro, construir(nome).gerar_sinais(quadro), _custos(args), _config(args))
+            trades = resultado.trades.copy()
+            trades["par"] = par
+            trades["estrategia"] = nome
+            todos.append(trades)
+    if not todos:
+        raise SystemExit("Nenhum trade gerado.")
+
+    regras = RegrasCarteira(
+        saldo_inicial=args.banca, risco_por_trade=args.risco, max_posicoes=args.max_posicoes,
+        max_por_par=args.max_por_par, exposicao_maxima=args.exposicao,
+        perda_diaria_maxima=args.perda_diaria, perdas_seguidas_para_pausa=args.perdas_para_pausa,
+        sinais_de_pausa=args.sinais_de_pausa, valor_minimo_ordem=args.ordem_minima, moeda=args.moeda,
+    )
+    resultado = simular_carteira(pd.concat(todos, ignore_index=True), regras)
+    periodo = f"desde {args.desde}" if args.desde else f"{args.dias} dias"
+    print(f"=== carteira | {', '.join(nomes)} | {args.tf} | {len(quadros)} pares | {periodo} ===")
+    print(relatorio(resultado))
+    print()
+    print("Cuidado ao ler: periodo ja olhado; isto mede a MECANICA da gestao de banca,")
+    print("nao a vantagem dos setups. Vantagem so a coleta ao vivo confirma.")
+    armazenamento.fechar()
+    return 0
+
+
+# -------------------------------------------------------------------- decidir
+
+
+def comando_decidir(args) -> int:
+    """Varre o mercado e diz o que faria agora, com quanto, e por que nao."""
+    import json as _json
+    from pathlib import Path
+
+    from nucleo import decisao
+    from nucleo.aprendizado.filtro import FiltroML
+    from nucleo.risco.carteira import Carteira, RegrasCarteira
+
+    provedor, armazenamento = _contexto(args)
+    nomes = _nomes(args)
+    estrategias = [construir(n) for n in nomes]
+    timeframes = [t.strip() for t in args.tfs.split(",") if t.strip()]
+
+    filtros = {}
+    if args.filtros:
+        for estrategia in estrategias:
+            caminho = Path(args.filtros) / f"{estrategia.nome}.pkl"
+            if caminho.exists():
+                filtros[estrategia.nome] = FiltroML.carregar(str(caminho))
+        print(f"filtros de ML carregados: {len(filtros)}")
+
+    carteira = Carteira(RegrasCarteira(
+        saldo_inicial=args.banca, risco_por_trade=args.risco, max_posicoes=args.max_posicoes,
+        max_por_par=args.max_por_par, exposicao_maxima=args.exposicao,
+        valor_minimo_ordem=args.ordem_minima, moeda=args.moeda,
+    ))
+
+    recomendacoes = decisao.varrer(
+        _pares(args), timeframes, estrategias, provedor, armazenamento, carteira,
+        filtros=filtros, usar_rede=not args.offline,
+    )
+
+    print(f"=== decisao | {datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC | banca "
+          f"{args.moeda} {args.banca:g} | {len(nomes)} setups | {', '.join(timeframes)} ===")
+    if not recomendacoes:
+        print("Nenhum sinal ativo na ultima vela fechada de nenhum par/timeframe.")
+    else:
+        pd.set_option("display.width", 220)
+        print(decisao.tabela(recomendacoes).to_string(index=False))
+        entrar = [r for r in recomendacoes if r.decisao == decisao.ENTRAR]
+        print()
+        print(f"{len(entrar)} entrada(s) recomendada(s), {len(recomendacoes) - len(entrar)} recusada(s).")
+
+    if args.json:
+        Path(args.json).write_text(
+            _json.dumps(decisao.para_json(recomendacoes), ensure_ascii=False, indent=2, default=str),
+            encoding="utf-8",
+        )
+        print(f"gravado em {args.json}")
+
+    print()
+    print("Recomendacao e registro do que o sistema faria. Nenhuma ordem foi enviada.")
+    armazenamento.fechar()
+    return 0
+
+
+
 # ----------------------------------------------------------------------- main
 
 
@@ -888,6 +1097,65 @@ def montar_parser() -> argparse.ArgumentParser:
              "Use um valor que cubra o intervalo entre execucoes",
     )
     p.set_defaults(funcao=comando_monitorar)
+
+    def de_banca(p):
+        p.add_argument("--banca", type=float, default=100.0)
+        p.add_argument("--moeda", default="USDT")
+        p.add_argument("--risco", type=float, default=0.02)
+        p.add_argument("--max-posicoes", type=int, default=3, dest="max_posicoes")
+        p.add_argument("--max-por-par", type=int, default=1, dest="max_por_par")
+        p.add_argument("--exposicao", type=float, default=1.0)
+        p.add_argument("--ordem-minima", type=float, default=1.0, dest="ordem_minima")
+
+    def de_mercado(p):
+        p.add_argument("--banco", default=None)
+        p.add_argument("--corretora", default=None)
+        p.add_argument("--pares", default="BTC/USDT,ETH/USDT,SOL/USDT,BNB/USDT,XRP/USDT")
+        p.add_argument("--tf", default="4h")
+        p.add_argument("--dias", type=int, default=365)
+        p.add_argument("--desde", default=None, help="AAAA-MM-DD")
+        p.add_argument("--offline", action="store_true")
+        p.add_argument("--taxa", type=float, default=0.001)
+        p.add_argument("--slippage", type=float, default=0.0005)
+        p.add_argument("--max-barras", type=int, default=48, dest="max_barras")
+        p.add_argument("--ambiguidade", default="pessimista", choices=("pessimista", "otimista"))
+        p.add_argument("--dimensionamento", default="risco", choices=("risco", "fixo"))
+
+    p = sub.add_parser("conjunto", help="monta o conjunto de treino de um setup")
+    de_mercado(p)
+    p.add_argument("--estrategia", default="ema", choices=ESTRATEGIAS)
+    p.add_argument("--risco", type=float, default=0.02)
+    p.add_argument("--saida", default=None, help="CSV de saida (padrao: dados/conjuntos/<setup>_<tf>.csv)")
+    p.set_defaults(funcao=comando_conjunto)
+
+    p = sub.add_parser("filtro", help="avalia o filtro de ML por walk-forward")
+    p.add_argument("--conjunto", required=True, help="CSV gerado por 'conjunto'")
+    p.add_argument("--limiar", type=float, default=0.5)
+    p.add_argument("--meses-teste", type=int, default=6, dest="meses_teste")
+    p.add_argument("--minimo-treino", type=int, default=100, dest="minimo_treino")
+    p.add_argument("--salvar", default=None, metavar="PKL", help="treina no conjunto todo e grava")
+    p.set_defaults(funcao=comando_filtro)
+
+    p = sub.add_parser("carteira", help="banca compartilhada com regras e posicoes simultaneas")
+    de_mercado(p)
+    de_banca(p)
+    p.add_argument("--estrategias", default="confluencia,rsi_macd,compressao")
+    p.add_argument("--perda-diaria", type=float, default=0.06, dest="perda_diaria")
+    p.add_argument("--perdas-para-pausa", type=int, default=4, dest="perdas_para_pausa")
+    p.add_argument("--sinais-de-pausa", type=int, default=3, dest="sinais_de_pausa")
+    p.set_defaults(funcao=comando_carteira)
+
+    p = sub.add_parser("decidir", help="o que o sistema faria agora, com quanto, e por que nao")
+    p.add_argument("--banco", default=None)
+    p.add_argument("--corretora", default=None)
+    p.add_argument("--pares", default="BTC/USDT,ETH/USDT,SOL/USDT,BNB/USDT,XRP/USDT")
+    p.add_argument("--tfs", default="4h")
+    p.add_argument("--estrategias", default="confluencia,rsi_macd,compressao")
+    p.add_argument("--filtros", default=None, metavar="PASTA", help="pasta com <setup>.pkl")
+    p.add_argument("--json", default=None, metavar="ARQUIVO")
+    p.add_argument("--offline", action="store_true")
+    de_banca(p)
+    p.set_defaults(funcao=comando_decidir)
 
     p = sub.add_parser("simular", help="quanto uma banca vira em cada setup")
     p.add_argument("--banco", default=None)
