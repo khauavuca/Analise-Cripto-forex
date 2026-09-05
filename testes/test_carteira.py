@@ -137,6 +137,13 @@ class TestSimulacao:
         assert resultado.saldo_final == pytest.approx(102.9)
         assert resultado.executados == 2
 
+    def test_trade_que_abre_e_fecha_no_mesmo_instante_e_contado(self):
+        """Estopado na barra de entrada: entrada == saida. Precisa fechar."""
+        quadro = trades(("A", "e", 0, 0, -0.02))
+        resultado = simular_carteira(quadro, regras())
+        assert resultado.executados == 1
+        assert resultado.saldo_final == pytest.approx(98.0)
+
     def test_trade_aberto_no_fim_dos_dados_e_ignorado(self):
         quadro = trades(("A", "e", 0, 5, 0.05))
         quadro.loc[0, "motivo_saida"] = "FIM_DADOS"

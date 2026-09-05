@@ -1,0 +1,176 @@
+{
+  "gerado_em": "2026-09-05T01:20:16+00:00",
+  "inicio": "2026-09-05T00:00:00+00:00",
+  "fim": "2026-09-12T00:00:00+00:00",
+  "banca_inicial": 500.0,
+  "moeda": "BRL",
+  "pares": [
+    "BTC/USDT",
+    "ETH/USDT",
+    "SOL/USDT",
+    "BNB/USDT",
+    "XRP/USDT"
+  ],
+  "timeframes": [
+    "1h",
+    "4h"
+  ],
+  "ultima_vela": "2026-09-05T00:00:00+00:00",
+  "velas_no_periodo": 5,
+  "ranking": [
+    {
+      "trader": "rsi_macd(40/60,evento)",
+      "banca_inicial": 500.0,
+      "banca_atual": 500.0,
+      "resultado": 0.0,
+      "variacao": 0.0,
+      "operacoes": 0,
+      "ganhas": 0,
+      "perdidas": 0,
+      "em_aberto": 0,
+      "maior_queda": 0.0,
+      "recusadas": 0
+    },
+    {
+      "trader": "ema(21/55,evento)",
+      "banca_inicial": 500.0,
+      "banca_atual": 500.0,
+      "resultado": 0.0,
+      "variacao": 0.0,
+      "operacoes": 0,
+      "ganhas": 0,
+      "perdidas": 0,
+      "em_aberto": 0,
+      "maior_queda": 0.0,
+      "recusadas": 0
+    },
+    {
+      "trader": "donchian(20,2atr)",
+      "banca_inicial": 500.0,
+      "banca_atual": 500.0,
+      "resultado": 0.0,
+      "variacao": 0.0,
+      "operacoes": 0,
+      "ganhas": 0,
+      "perdidas": 0,
+      "em_aberto": 0,
+      "maior_queda": 0.0,
+      "recusadas": 0
+    },
+    {
+      "trader": "compressao(20/1.5)",
+      "banca_inicial": 500.0,
+      "banca_atual": 500.0,
+      "resultado": 0.0,
+      "variacao": 0.0,
+      "operacoes": 0,
+      "ganhas": 0,
+      "perdidas": 0,
+      "em_aberto": 0,
+      "maior_queda": 0.0,
+      "recusadas": 0
+    },
+    {
+      "trader": "momento(60,0.5sd)",
+      "banca_inicial": 500.0,
+      "banca_atual": 500.0,
+      "resultado": 0.0,
+      "variacao": 0.0,
+      "operacoes": 0,
+      "ganhas": 0,
+      "perdidas": 0,
+      "em_aberto": 0,
+      "maior_queda": 0.0,
+      "recusadas": 0
+    },
+    {
+      "trader": "reversao_bb(20,adx<20)",
+      "banca_inicial": 500.0,
+      "banca_atual": 500.0,
+      "resultado": 0.0,
+      "variacao": 0.0,
+      "operacoes": 0,
+      "ganhas": 0,
+      "perdidas": 0,
+      "em_aberto": 0,
+      "maior_queda": 0.0,
+      "recusadas": 0
+    },
+    {
+      "trader": "vwap(W,2sd)",
+      "banca_inicial": 500.0,
+      "banca_atual": 500.0,
+      "resultado": 0.0,
+      "variacao": 0.0,
+      "operacoes": 0,
+      "ganhas": 0,
+      "perdidas": 0,
+      "em_aberto": 0,
+      "maior_queda": 0.0,
+      "recusadas": 0
+    },
+    {
+      "trader": "estrutura(5/5)",
+      "banca_inicial": 500.0,
+      "banca_atual": 500.0,
+      "resultado": 0.0,
+      "variacao": 0.0,
+      "operacoes": 0,
+      "ganhas": 0,
+      "perdidas": 0,
+      "em_aberto": 0,
+      "maior_queda": 0.0,
+      "recusadas": 0
+    }
+  ],
+  "traders": {
+    "rsi_macd(40/60,evento)": {
+      "banca_atual": 500.0,
+      "fechadas": [],
+      "abertas": [],
+      "recusadas": {}
+    },
+    "ema(21/55,evento)": {
+      "banca_atual": 500.0,
+      "fechadas": [],
+      "abertas": [],
+      "recusadas": {}
+    },
+    "donchian(20,2atr)": {
+      "banca_atual": 500.0,
+      "fechadas": [],
+      "abertas": [],
+      "recusadas": {}
+    },
+    "compressao(20/1.5)": {
+      "banca_atual": 500.0,
+      "fechadas": [],
+      "abertas": [],
+      "recusadas": {}
+    },
+    "momento(60,0.5sd)": {
+      "banca_atual": 500.0,
+      "fechadas": [],
+      "abertas": [],
+      "recusadas": {}
+    },
+    "reversao_bb(20,adx<20)": {
+      "banca_atual": 500.0,
+      "fechadas": [],
+      "abertas": [],
+      "recusadas": {}
+    },
+    "vwap(W,2sd)": {
+      "banca_atual": 500.0,
+      "fechadas": [],
+      "abertas": [],
+      "recusadas": {}
+    },
+    "estrutura(5/5)": {
+      "banca_atual": 500.0,
+      "fechadas": [],
+      "abertas": [],
+      "recusadas": {}
+    }
+  }
+}

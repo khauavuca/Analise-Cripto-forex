@@ -276,6 +276,50 @@ class TestStopNoEmpate:
         assert trades.iloc[0].motivo_saida == motor.MOTIVO_FIM
 
 
+class TestBarraDeEntrada:
+    """O stop pode ser atingido na propria barra em que se entrou.
+
+    Entra-se na abertura; o resto da barra acontece depois. Ignorar isso
+    garantia que todo trade sobrevivesse a primeira barra - foi como um
+    trader de teste com stop de 0,1% ganhou 123% num mercado subindo.
+    """
+
+    def test_stop_na_barra_de_entrada(self):
+        quadro = montar([(100, 101, 99, 100), (100, 101, 94, 96), (96, 97, 95, 96)])
+        sinais = sinal_em(quadro, 0, COMPRA, stop=95.0, alvo=1e9)
+        trade = motor.executar(quadro, sinais, SEM_CUSTO, LONGO_PRAZO).trades.iloc[0]
+
+        assert trade.entrada == quadro.index[1]
+        assert trade.saida == quadro.index[1], "sai na mesma barra"
+        assert trade.motivo_saida == motor.MOTIVO_STOP
+        assert trade.preco_saida == 95.0
+        assert trade.barras_no_trade == 0
+
+    def test_alvo_na_barra_de_entrada(self):
+        quadro = montar([(100, 101, 99, 100), (100, 110, 99, 105), (105, 106, 104, 105)])
+        sinais = sinal_em(quadro, 0, COMPRA, stop=90.0, alvo=108.0)
+        trade = motor.executar(quadro, sinais, SEM_CUSTO, LONGO_PRAZO).trades.iloc[0]
+        assert trade.motivo_saida == motor.MOTIVO_ALVO
+        assert trade.preco_saida == 108.0
+        assert trade.barras_no_trade == 0
+
+    def test_ambiguidade_na_barra_de_entrada_assume_stop(self):
+        quadro = montar([(100, 101, 99, 100), (100, 120, 90, 110), (110, 111, 109, 110)])
+        sinais = sinal_em(quadro, 0, COMPRA, stop=95.0, alvo=115.0)
+        resultado = motor.executar(quadro, sinais, SEM_CUSTO, LONGO_PRAZO)
+        assert resultado.trades.iloc[0].motivo_saida == motor.MOTIVO_STOP
+        assert resultado.diagnosticos["saidas_ambiguas"] == 1
+
+    def test_gap_nao_se_aplica_na_entrada(self):
+        """A abertura da barra de entrada E o preco de entrada: nao e gap."""
+        quadro = montar([(100, 101, 99, 100), (100, 103, 99.5, 102), (102, 103, 101, 102)])
+        # Stop acima da abertura de entrada seria "gap" pela regra das barras
+        # seguintes; na entrada, a protecao invalida ja foi barrada antes.
+        sinais = sinal_em(quadro, 0, COMPRA, stop=99.0, alvo=1e9)
+        trades = motor.executar(quadro, sinais, SEM_CUSTO, LONGO_PRAZO).trades
+        assert trades.iloc[0].motivo_saida == motor.MOTIVO_FIM, "nao estopa: minima 99,5 > 99"
+
+
 class TestMultiploR:
     def test_r_bate_com_a_distancia_do_stop(self):
         quadro = montar(

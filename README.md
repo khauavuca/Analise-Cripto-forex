@@ -266,6 +266,36 @@ python cli.py decidir --estrategias donchian,confluencia --filtros modelos
 depois (o nome do setup com parâmetros, ajustado para ser nome de arquivo
 válido). Se preferir escolher o caminho, use `--salvar`.
 
+### A campanha de teste
+
+`python cli.py campanha` transforma cada setup num **trader com a própria
+banca** — dinheiro de mentira, mercado de verdade — e mostra, em português
+claro, quem está ganhando:
+
+```bash
+python cli.py campanha --inicio 2026-09-05 --fim 2026-09-11 --banca 500 --moeda BRL --tfs 1h,4h --salvar-em dados/campanha
+```
+
+Ela roda na nuvem junto com a coleta e o relatório fica em
+`dados/campanha/relatorio.md`, atualizado a cada execução.
+
+Dois detalhes de desenho que valem entender:
+
+- **Ela é refeita do zero a cada execução**, a partir das velas reais entre o
+  início e agora. Não há estado guardado para se corromper: se o processo cair,
+  a próxima execução chega ao mesmo resultado. E como vela a vela dá o mesmo que
+  de uma vez (`test_replay.py`), a campanha é idêntica ao que o motor de backtest
+  faria — por construção, não por promessa.
+- **Só conta o que nasceu dentro dela.** As velas anteriores ao início entram
+  apenas para aquecer indicadores. Os setups foram congelados antes, e é isso
+  que faz dela um teste *para frente*: ninguém escolheu o período depois de ver
+  o resultado.
+
+O relatório avisa sozinho quando é cedo: abaixo de 30 operações fechadas, a
+ordem dos traders é sorte, não habilidade. Uma semana no 4h raramente passa
+disso — a campanha é o sistema inteiro com contabilidade de verdade, não um
+veredito.
+
 ### Decisões que sustentam o número
 
 - **Execução na abertura da vela seguinte.** Decide no fechamento de `i`, executa

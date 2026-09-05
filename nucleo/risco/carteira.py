@@ -206,12 +206,17 @@ def simular_carteira(trades: pd.DataFrame, regras: RegrasCarteira | None = None)
     fechados = trades[trades["motivo_saida"] != "FIM_DADOS"].reset_index(drop=True)
 
     # Eventos em ordem de tempo. No mesmo instante, fechamentos vem antes de
-    # aberturas: o capital que acabou de ser liberado ja pode ser usado.
+    # aberturas: o capital que acabou de ser liberado ja pode ser usado. A
+    # excecao e o trade que abre e fecha na MESMA barra (estopado na barra de
+    # entrada): o fechamento dele precisa vir depois da propria abertura, senao
+    # a carteira tenta fechar uma posicao que ainda nao existe e a deixa aberta
+    # para sempre.
     eventos = []
     for i, t in fechados.iterrows():
-        eventos.append((pd.Timestamp(t["entrada"]), 1, i, "abrir"))
-        eventos.append((pd.Timestamp(t["saida"]), 0, i, "fechar"))
-    eventos.sort(key=lambda e: (e[0], e[1]))
+        entrada, saida = pd.Timestamp(t["entrada"]), pd.Timestamp(t["saida"])
+        eventos.append((entrada, 1, i, "abrir"))
+        eventos.append((saida, 0 if saida > entrada else 2, i, "fechar"))
+    eventos.sort(key=lambda e: (e[0], e[1], e[2]))
 
     curva = {}
     for momento, _, i, tipo in eventos:

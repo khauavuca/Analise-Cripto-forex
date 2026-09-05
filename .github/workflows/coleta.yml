@@ -15,7 +15,16 @@ on:
         default: "BTC/USDT,ETH/USDT,SOL/USDT,BNB/USDT,XRP/USDT"
       timeframes:
         description: "Timeframes (o agendador nao alcanca 1m)"
-        default: "5m,15m,1h"
+        default: "5m,15m,1h,4h"
+
+# A campanha de teste: cada setup gerencia uma banca de mentira no mercado de
+# verdade, de INICIO ate FIM (ultimo dia incluso). Refeita do zero a cada
+# execucao a partir das velas reais, entao nao ha estado para se perder.
+env:
+  CAMPANHA_INICIO: "2026-09-05"
+  CAMPANHA_FIM: "2026-09-11"
+  CAMPANHA_BANCA: "500"
+  CAMPANHA_MOEDA: "BRL"
 
 # Impede duas execucoes gravando no mesmo arquivo ao mesmo tempo, o que daria
 # conflito no push. A que estiver rodando termina; a nova espera.
@@ -62,18 +71,34 @@ jobs:
         run: |
           python cli.py monitorar \
             --pares "${{ inputs.pares || 'BTC/USDT,ETH/USDT,SOL/USDT,BNB/USDT,XRP/USDT' }}" \
-            --tfs "${{ inputs.timeframes || '5m,15m,1h' }}" \
+            --tfs "${{ inputs.timeframes || '5m,15m,1h,4h' }}" \
             --estrategia todas \
             --ciclos 1 \
             --velas 40 \
             --jsonl dados/observacoes \
             --banco "$BANCO_DADOS"
 
+      - name: Campanha de teste
+        # Nao derruba a execucao: a coleta acima ja gravou e precisa ser
+        # commitada mesmo que a campanha falhe por um dado fora do lugar.
+        continue-on-error: true
+        env:
+          TZ: UTC
+          EXCHANGE: okx
+          BANCO_DADOS: ${{ runner.temp }}/efemero.db
+        run: |
+          python cli.py campanha \
+            --inicio "$CAMPANHA_INICIO" --fim "$CAMPANHA_FIM" \
+            --banca "$CAMPANHA_BANCA" --moeda "$CAMPANHA_MOEDA" \
+            --tfs 1h,4h --estrategias todas \
+            --salvar-em dados/campanha \
+            --banco "$BANCO_DADOS"
+
       - name: Gravar no repositorio
         run: |
           git config user.name  "coletor-de-mercado"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add dados/observacoes
+          git add dados/observacoes dados/campanha
 
           if git diff --cached --quiet; then
             echo "Nenhuma vela nova fechou desde a ultima execucao."

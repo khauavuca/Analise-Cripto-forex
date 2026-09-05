@@ -207,9 +207,21 @@ def executar(
                     stop_original=float(stops[i]),
                 )
                 # A entrada foi na abertura desta barra, entao o que a barra
-                # percorreu depois disso ja conta para MFE e MAE.
+                # percorreu depois disso ja conta para MFE e MAE - e tambem
+                # pode ter batido no stop ou no alvo.
                 posicao = _atualizar_extremos(posicao, maximas[i], minimas[i])
-                posicao = _talvez_empatar(posicao, config)
+                saida = _avaliar_saida(posicao, i, aberturas[i], maximas[i], minimas[i], config)
+                if saida is not None:
+                    preco_saida, motivo_saida, foi_ambiguo = saida
+                    ambiguidades += int(foi_ambiguo)
+                    trade = _fechar(
+                        posicao, i, momentos[i], preco_saida, motivo_saida, foi_ambiguo, custos
+                    )
+                    trades.append(trade)
+                    capital *= 1 + trade["retorno_liquido_pct"] * trade["fracao"]
+                    posicao = None
+                else:
+                    posicao = _talvez_empatar(posicao, config)
 
         curva[i] = _marcar_a_mercado(capital, posicao, fechamentos[i], custos)
 
@@ -309,24 +321,30 @@ def _avaliar_saida(
     """Devolve (preco, motivo, ambiguo) ou None se a posicao continua aberta."""
     comprado = posicao.direcao == COMPRA
     barras = indice - posicao.indice_entrada
-    if barras <= 0:
+    if barras < 0:
         return None
 
-    # 1. Gap na abertura. Se a barra ja abre alem do stop, o preenchimento sai
-    #    na abertura - pior que o stop. Assumir o preco do stop aqui esconde
-    #    sistematicamente as perdas de cauda, que sao as que quebram a conta.
-    if comprado and abertura <= posicao.stop:
-        return abertura, MOTIVO_STOP, False
-    if not comprado and abertura >= posicao.stop:
-        return abertura, MOTIVO_STOP, False
-    if comprado and abertura >= posicao.alvo:
-        return abertura, MOTIVO_ALVO, False
-    if not comprado and abertura <= posicao.alvo:
-        return abertura, MOTIVO_ALVO, False
+    if barras > 0:
+        # 1. Gap na abertura. Se a barra ja abre alem do stop, o preenchimento
+        #    sai na abertura - pior que o stop. Assumir o preco do stop aqui
+        #    esconde sistematicamente as perdas de cauda, que sao as que
+        #    quebram a conta.
+        if comprado and abertura <= posicao.stop:
+            return abertura, MOTIVO_STOP, False
+        if not comprado and abertura >= posicao.stop:
+            return abertura, MOTIVO_STOP, False
+        if comprado and abertura >= posicao.alvo:
+            return abertura, MOTIVO_ALVO, False
+        if not comprado and abertura <= posicao.alvo:
+            return abertura, MOTIVO_ALVO, False
 
-    # 2. Prazo esgotado: sai na abertura desta barra, decisao ja conhecida.
-    if barras >= config.max_barras_no_trade:
-        return abertura, MOTIVO_TEMPO, False
+        # 2. Prazo esgotado: sai na abertura desta barra, decisao ja conhecida.
+        if barras >= config.max_barras_no_trade:
+            return abertura, MOTIVO_TEMPO, False
+    # Na barra de entrada (barras == 0) nao ha gap - a abertura E a entrada -
+    # e o prazo ainda nao correu. Mas o resto da barra acontece DEPOIS da
+    # entrada, e o stop pode ser atingido nela. Pular essa checagem garantia
+    # que todo trade sobrevivesse a primeira barra, o que e otimismo puro.
 
     tocou_stop = minima <= posicao.stop if comprado else maxima >= posicao.stop
     tocou_alvo = maxima >= posicao.alvo if comprado else minima <= posicao.alvo

@@ -1019,6 +1019,64 @@ def comando_decidir(args) -> int:
 
 
 
+# ------------------------------------------------------------------- campanha
+
+
+def comando_campanha(args) -> int:
+    """Teste para frente: cada setup e um trader com a propria banca."""
+    import json as _json
+    from pathlib import Path
+
+    from nucleo import campanha
+    from nucleo.risco.carteira import RegrasCarteira
+
+    provedor, armazenamento = _contexto(args)
+    nomes = _nomes(args)
+    estrategias = [construir(n) for n in nomes]
+
+    inicio = datetime.fromisoformat(args.inicio).replace(tzinfo=timezone.utc)
+    # --fim e a data do ultimo dia, inclusive: "ate sexta" inclui a sexta inteira.
+    fim = datetime.fromisoformat(args.fim).replace(tzinfo=timezone.utc) + timedelta(days=1)
+    if fim <= inicio:
+        raise SystemExit("--fim precisa ser depois de --inicio.")
+
+    config = campanha.ConfigCampanha(
+        inicio=inicio,
+        fim=fim,
+        banca=args.banca,
+        moeda=args.moeda,
+        pares=tuple(_pares(args)),
+        timeframes=tuple(t.strip() for t in args.tfs.split(",") if t.strip()),
+        regras=RegrasCarteira(
+            saldo_inicial=args.banca, risco_por_trade=args.risco, max_posicoes=args.max_posicoes,
+            max_por_par=args.max_por_par, exposicao_maxima=args.exposicao,
+            perda_diaria_maxima=args.perda_diaria, valor_minimo_ordem=args.ordem_minima,
+            moeda=args.moeda,
+        ),
+        custos=_custos(args),
+        execucao=_config(args),
+    )
+
+    resultado = campanha.rodar(config, estrategias, provedor, armazenamento, usar_rede=not args.offline)
+    texto = campanha.relatorio_simples(resultado)
+    print(texto)
+
+    if args.salvar_em:
+        pasta = Path(args.salvar_em)
+        pasta.mkdir(parents=True, exist_ok=True)
+        (pasta / "relatorio.md").write_text(texto + "\n", encoding="utf-8")
+        (pasta / "relatorio.json").write_text(
+            _json.dumps(campanha.para_json(resultado), ensure_ascii=False, indent=2, default=str),
+            encoding="utf-8",
+        )
+        print()
+        print(f"relatorio gravado em {pasta}/relatorio.md e relatorio.json")
+
+    armazenamento.fechar()
+    return 0
+
+
+
 # ----------------------------------------------------------------------- main
 
 
@@ -1179,6 +1237,32 @@ def montar_parser() -> argparse.ArgumentParser:
     p.add_argument("--offline", action="store_true")
     de_banca(p)
     p.set_defaults(funcao=comando_decidir)
+
+    p = sub.add_parser("campanha", help="teste para frente: cada setup gerencia a propria banca")
+    p.add_argument("--banco", default=None)
+    p.add_argument("--corretora", default=None)
+    p.add_argument("--inicio", required=True, help="AAAA-MM-DD (UTC)")
+    p.add_argument("--fim", required=True, help="AAAA-MM-DD, ultimo dia incluso")
+    p.add_argument("--pares", default="BTC/USDT,ETH/USDT,SOL/USDT,BNB/USDT,XRP/USDT")
+    p.add_argument("--tfs", default="1h,4h")
+    p.add_argument("--estrategias", default="todas")
+    p.add_argument("--salvar-em", default=None, dest="salvar_em", metavar="PASTA")
+    p.add_argument("--offline", action="store_true")
+    p.add_argument("--taxa", type=float, default=0.001)
+    p.add_argument("--slippage", type=float, default=0.0005)
+    p.add_argument("--max-barras", type=int, default=48, dest="max_barras")
+    p.add_argument("--ambiguidade", default="pessimista", choices=("pessimista", "otimista"))
+    p.add_argument("--dimensionamento", default="risco", choices=("risco", "fixo"))
+    p.add_argument("--perda-diaria", type=float, default=0.06, dest="perda_diaria")
+    p.add_argument("--banca", type=float, default=500.0)
+    p.add_argument("--moeda", default="BRL")
+    p.add_argument("--risco", type=float, default=0.02)
+    p.add_argument("--max-posicoes", type=int, default=3, dest="max_posicoes")
+    p.add_argument("--max-por-par", type=int, default=1, dest="max_por_par")
+    p.add_argument("--exposicao", type=float, default=1.0)
+    p.add_argument("--ordem-minima", type=float, default=6.0, dest="ordem_minima",
+                   help="menor ordem que a corretora aceita, na moeda da banca (~1 USDT = R$ 6)")
+    p.set_defaults(funcao=comando_campanha)
 
     p = sub.add_parser("simular", help="quanto uma banca vira em cada setup")
     p.add_argument("--banco", default=None)
