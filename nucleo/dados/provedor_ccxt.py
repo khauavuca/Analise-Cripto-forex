@@ -30,6 +30,10 @@ from .provedor import (
 LIMITE_PADRAO = 1000
 MAX_TENTATIVAS = 4
 VAZIOS_ATE_DESISTIR = 3
+# Janelas vazias seguidas antes de desistir. 400 janelas de 100 velas de 4h
+# sao uns 18 anos - se nao apareceu nada ate la, nao vai aparecer. Quando a
+# corretora informa a data de listagem, nem chega perto disso.
+MAX_PAGINAS_VAZIAS = 400
 JANELA_PADRAO_MS = 365 * 24 * 60 * 60 * 1000
 
 
@@ -106,6 +110,12 @@ class ProvedorCCXT(ProvedorDados):
         inicio_ms = para_ms(inicio)
         if inicio_ms is None:
             inicio_ms = fim_ms - JANELA_PADRAO_MS
+
+        # Se a corretora diz quando o par passou a negociar, nao ha por que
+        # pedir velas de antes disso.
+        listagem = self._inicio_da_listagem(par)
+        if listagem is not None:
+            inicio_ms = max(inicio_ms, listagem)
         if inicio_ms >= fim_ms:
             return quadro_vazio()
 
@@ -150,11 +160,15 @@ class ProvedorCCXT(ProvedorDados):
             lote = self._buscar_pagina(par, timeframe, cursor)
 
             if not lote:
-                # Pode ser fim do historico ou um buraco de indisponibilidade.
-                # Pula uma pagina - do tamanho que a corretora vem entregando,
-                # nao do que pedimos - e desiste depois de algumas secas.
+                # Na OKX, `since` define uma JANELA de `limit` velas: resposta
+                # vazia significa "nada nesta janela", e nao diz nada sobre o
+                # que existe depois. Por isso nao se pode desistir cedo (foi o
+                # que deixou o BNB sem historico) nem saltar por cima (o salto
+                # exponencial pulou uma serie inteira no teste). Anda uma
+                # janela por vez, do tamanho que a corretora vem entregando, e
+                # so para quando passar do fim ou do teto de janelas vazias.
                 vazias += 1
-                if vazias >= VAZIOS_ATE_DESISTIR:
+                if vazias > MAX_PAGINAS_VAZIAS:
                     break
                 cursor += passo * tamanho_pagina
                 continue
@@ -171,6 +185,25 @@ class ProvedorCCXT(ProvedorDados):
             cursor = ultimo + passo
 
         return linhas
+
+    def _inicio_da_listagem(self, par: str) -> int | None:
+        """Quando o par comecou a negociar, se a corretora informar (em ms)."""
+        try:
+            mercados = self.cliente.markets or self.cliente.load_markets()
+        except Exception:
+            return None
+        info = (mercados.get(par) or {}).get("info") or {}
+        for chave in ("listTime", "launchTime", "onboardDate", "listingDate"):
+            valor = info.get(chave)
+            if not valor:
+                continue
+            try:
+                ms = int(float(valor))
+            except (TypeError, ValueError):
+                continue
+            # Alguns campos vem em segundos, outros em milissegundos.
+            return ms if ms > 10**11 else ms * 1000
+        return None
 
     def _buscar_pagina(self, par: str, timeframe: str, desde: int) -> list[list]:
         ultimo_erro: Exception | None = None

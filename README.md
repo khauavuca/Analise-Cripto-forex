@@ -239,10 +239,13 @@ ocupa o lugar do filtro — o resto já existe e já está medido.
 
 O que cada peça mostrou ao ser medida:
 
-- **O filtro é honesto sobre si mesmo.** No `ema`, AUC fora da amostra de 0,505 —
-  moeda ao ar — e o veredito é *não usar*. No `donchian`, 0,555 com ganho acima
-  do controle embaralhado: hipótese, não resultado. Sem o controle, os dois
-  pareceriam "melhorar".
+- **O filtro é honesto sobre si mesmo.** Em 10 pares desde 2022 (OKX): `ema`
+  0,518 e `compressao` 0,510 de AUC fora da amostra — moeda ao ar, veredito
+  *não usar*. `confluencia` tem o maior AUC (0,580) e mesmo assim é reprovado,
+  porque o R acumulado cai e o controle embaralhado cai igual — ranquear bem
+  não é a mesma coisa que ganhar dinheiro. Só o `donchian` (0,556, R de +468
+  para +594 mantendo 29% dos trades) fica acima do controle: hipótese, não
+  resultado.
 - **As regras da carteira valem mais que o setup.** Os três setups positivos em
   90 dias: com regras, +55,8% e rebaixamento de −23,8%; **sem regras, +46,3% e
   rebaixamento de −52,3%**. E juntar os nove na mesma banca dá +2,6%: os

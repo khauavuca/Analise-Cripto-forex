@@ -88,6 +88,11 @@ class ClientePaginado:
 
     def fetch_ohlcv(self, par, timeframe=None, since=None, limit=None):
         self.chamadas += 1
+        # Como a OKX: `since` anterior a primeira vela devolve VAZIO, em vez de
+        # pular para a primeira vela como a Binance faz. E esse comportamento
+        # que deixava um par listado depois do inicio pedido sem historico.
+        if since is not None and since < self.velas[0][0]:
+            return []
         a_partir = [v for v in self.velas if v[0] >= (since or 0)]
         return a_partir[: self.por_pagina]
 
@@ -111,6 +116,39 @@ class TestPaginacao:
         )
         assert len(quadro) == total, f"veio {len(quadro)} de {total}: paginacao truncou"
         assert cliente.chamadas >= total // 300
+
+    def test_alcanca_par_listado_muito_depois_do_inicio_pedido(self):
+        """Regressao do BNB na OKX.
+
+        A OKX devolve vazio para `since` anterior a listagem, em vez de pular
+        para a primeira vela. Com o inicio pedido 40 paginas antes da listagem,
+        desistir depois de tres vazias deixava o par sem historico nenhum.
+        """
+        passo = 4 * 3600 * 1000
+        pedido = 1_640_000_000_000
+        listagem = pedido + 40 * 100 * passo  # 4000 velas depois do pedido
+        total = 1_500
+        cliente = ClientePaginado(listagem, total, passo, por_pagina=100)
+        provedor = ProvedorCCXT("okx", cliente=cliente, limite_por_pagina=1000)
+
+        quadro = provedor.obter_velas(
+            "BNB/USDT", "4h", inicio=pedido, fim=listagem + (total + 5) * passo
+        )
+        assert len(quadro) == total, f"veio {len(quadro)} de {total}"
+        assert int(quadro.index[0].timestamp() * 1000) == listagem, "nao pode pular a primeira vela"
+
+    def test_usa_a_data_de_listagem_quando_a_corretora_informa(self):
+        passo = 4 * 3600 * 1000
+        pedido = 1_640_000_000_000
+        listagem = pedido + 40 * 100 * passo
+        cliente = ClientePaginado(listagem, 500, passo, por_pagina=100)
+        cliente.markets = {"BNB/USDT": {"info": {"listTime": str(listagem)}}}
+        provedor = ProvedorCCXT("okx", cliente=cliente, limite_por_pagina=1000)
+
+        quadro = provedor.obter_velas("BNB/USDT", "4h", inicio=pedido, fim=listagem + 600 * passo)
+        assert len(quadro) == 500
+        # Com a data de listagem em maos nao ha tateio: so as paginas dos dados.
+        assert cliente.chamadas <= 500 // 100 + 2
 
     def test_para_quando_a_corretora_ignora_o_cursor(self):
         """Guarda contra laco infinito.
