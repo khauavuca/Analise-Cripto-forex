@@ -149,12 +149,20 @@ def comparar(
     linhas = []
     for nome, trades in trades_por_setup.items():
         resultado = simular(trades, config)
+        detalhe = resultado.detalhe
+        ganhos = detalhe["resultado"][detalhe["resultado"] > 0] if not detalhe.empty else pd.Series(dtype=float)
+        perdas = detalhe["resultado"][detalhe["resultado"] <= 0] if not detalhe.empty else pd.Series(dtype=float)
+        acerto = len(ganhos) / len(detalhe) if len(detalhe) else np.nan
+        # Acerto sem payoff engana: 40% com payoff 2 ganha, 60% com payoff 0,5 perde.
+        payoff = (ganhos.mean() / abs(perdas.mean())) if len(ganhos) and len(perdas) else np.nan
         linhas.append(
             {
                 "setup": nome,
                 "saldo_final": round(resultado.saldo_final, 2),
                 "retorno": f"{resultado.retorno:+.1%}",
                 "trades": resultado.executados,
+                "acerto": f"{acerto:.0%}" if not np.isnan(acerto) else "-",
+                "payoff": round(payoff, 2) if not np.isnan(payoff) else "-",
                 "recusados": resultado.recusados_por_minimo,
                 "DD_max": f"{resultado.maior_rebaixamento:.1%}",
             }

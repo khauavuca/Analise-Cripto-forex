@@ -294,6 +294,14 @@ Dois detalhes de desenho que valem entender:
   que faz dela um teste *para frente*: ninguém escolheu o período depois de ver
   o resultado.
 
+Cada trader vem com três números que só fazem sentido juntos: **acerto** (com
+a faixa em que o acerto verdadeiro provavelmente está), **payoff** (ganho médio
+÷ perda média) e **quanto precisa acertar para empatar** com aquele payoff,
+que é `1 / (1 + payoff)`. É a leitura que o acerto sozinho não dá: 50% de
+acerto com payoff 1,40 precisa de 42% e está ganhando; 18% com payoff 0,35
+precisaria de 74% e está perdendo — e os dois podem aparecer na mesma tabela
+com "metade das operações ganhas".
+
 O relatório avisa sozinho quando é cedo: abaixo de 30 operações fechadas, a
 ordem dos traders é sorte, não habilidade. Uma semana no 4h raramente passa
 disso — a campanha é o sistema inteiro com contabilidade de verdade, não um
