@@ -154,11 +154,16 @@ def _dados(args, estrategia, provedor, armazenamento) -> pd.DataFrame:
 
 
 def comando_baixar(args) -> int:
+    from nucleo.dados.provedor import duracao_ms
+
     provedor, armazenamento = _contexto(args)
     inicio, fim = _periodo(args)
 
     for par in args.par.split(","):
         par = par.strip()
+        if args.reparar:
+            apagadas = armazenamento.limpar_cobertura(provedor.nome, par, args.tf)
+            print(f"{par:<12} cobertura esquecida ({apagadas} faixas); refazendo as lacunas")
         quadro = carregar(
             par, args.tf, inicio, fim, provedor=provedor, armazenamento=armazenamento
         )
@@ -170,6 +175,12 @@ def comando_baixar(args) -> int:
             f"{quadro.index[0]:%Y-%m-%d %H:%M} .. {quadro.index[-1]:%Y-%m-%d %H:%M}  "
             f"(no banco: {armazenamento.contar_velas(provedor.nome, par, args.tf)})"
         )
+        buracos = armazenamento.buracos(provedor.nome, par, args.tf, duracao_ms(args.tf))
+        if not buracos.empty:
+            print(f"{'':<12} !! {len(buracos)} buraco(s) na serie gravada:")
+            for b in buracos.itertuples():
+                print(f"{'':<15}{b.de:%Y-%m-%d %H:%M} -> {b.ate:%Y-%m-%d %H:%M}  ({b.velas_faltando} velas)")
+            print(f"{'':<12}   rode de novo com --reparar para preencher")
     armazenamento.fechar()
     return 0
 
@@ -886,11 +897,19 @@ def comando_filtro(args) -> int:
         print()
     print(relatorio.veredito())
 
-    if args.salvar:
+    destino = args.salvar
+    if not destino and args.setup:
+        from pathlib import Path
+
+        from nucleo.decisao import nome_de_arquivo
+
+        Path("modelos").mkdir(exist_ok=True)
+        destino = f"modelos/{nome_de_arquivo(construir(args.setup).nome)}.pkl"
+    if destino:
         filtro = FiltroML(config).treinar(conjunto)
-        filtro.salvar(args.salvar)
+        filtro.salvar(destino)
         print()
-        print(f"modelo final treinado em TODO o conjunto e gravado em {args.salvar}")
+        print(f"modelo final treinado em TODO o conjunto e gravado em {destino}")
         print("(o veredito acima e que diz se ele merece ser usado - o arquivo nao)")
         print()
         print("colunas que mais pesam:")
@@ -959,7 +978,7 @@ def comando_decidir(args) -> int:
     filtros = {}
     if args.filtros:
         for estrategia in estrategias:
-            caminho = Path(args.filtros) / f"{estrategia.nome}.pkl"
+            caminho = Path(args.filtros) / f"{decisao.nome_de_arquivo(estrategia.nome)}.pkl"
             if caminho.exists():
                 filtros[estrategia.nome] = FiltroML.carregar(str(caminho))
         print(f"filtros de ML carregados: {len(filtros)}")
@@ -1039,6 +1058,8 @@ def montar_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("baixar", help="baixa velas para o cache local")
     comuns(p, com_estrategia=False)
+    p.add_argument("--reparar", action="store_true",
+                   help="esquece a cobertura anotada e refaz as lacunas da serie")
     p.set_defaults(funcao=comando_baixar)
 
     p = sub.add_parser("analisar", help="sinal na ultima vela fechada")
@@ -1134,6 +1155,8 @@ def montar_parser() -> argparse.ArgumentParser:
     p.add_argument("--meses-teste", type=int, default=6, dest="meses_teste")
     p.add_argument("--minimo-treino", type=int, default=100, dest="minimo_treino")
     p.add_argument("--salvar", default=None, metavar="PKL", help="treina no conjunto todo e grava")
+    p.add_argument("--setup", default=None, choices=ESTRATEGIAS,
+                   help="grava o modelo em modelos/ com o nome que o decidir procura")
     p.set_defaults(funcao=comando_filtro)
 
     p = sub.add_parser("carteira", help="banca compartilhada com regras e posicoes simultaneas")

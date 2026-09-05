@@ -75,7 +75,43 @@ class TestTimeframes:
             provedor.obter_velas("BTC/USDT", "4h", inicio=1_700_000_000_000)
 
 
+class ClientePaginado:
+    """Corretora que entrega no maximo `por_pagina` velas por chamada."""
+
+    def __init__(self, inicio_ms: int, total: int, passo_ms: int, por_pagina: int):
+        self.velas = [
+            [inicio_ms + i * passo_ms, 1.0, 2.0, 0.5, 1.5, 1.0] for i in range(total)
+        ]
+        self.por_pagina = por_pagina
+        self.timeframes = {"1m": "1m", "4h": "4h"}
+        self.chamadas = 0
+
+    def fetch_ohlcv(self, par, timeframe=None, since=None, limit=None):
+        self.chamadas += 1
+        a_partir = [v for v in self.velas if v[0] >= (since or 0)]
+        return a_partir[: self.por_pagina]
+
+
 class TestPaginacao:
+    def test_baixa_tudo_mesmo_quando_a_corretora_entrega_menos_por_pagina(self):
+        """Regressao do buraco de dois anos na OKX.
+
+        Pedimos 1000 velas por pagina; a OKX entrega 300. O teto de paginas era
+        calculado a partir do que PEDIMOS, entao o laco parava cedo e devolvia
+        um pedaco do historico como se fosse tudo.
+        """
+        passo = 4 * 3600 * 1000
+        inicio = 1_640_000_000_000
+        total = 5_000  # 5000 velas de 4h = ~2,3 anos
+        cliente = ClientePaginado(inicio, total, passo, por_pagina=300)
+        provedor = ProvedorCCXT("okx", cliente=cliente, limite_por_pagina=1000)
+
+        quadro = provedor.obter_velas(
+            "BTC/USDT", "4h", inicio=inicio, fim=inicio + (total + 5) * passo
+        )
+        assert len(quadro) == total, f"veio {len(quadro)} de {total}: paginacao truncou"
+        assert cliente.chamadas >= total // 300
+
     def test_para_quando_a_corretora_ignora_o_cursor(self):
         """Guarda contra laco infinito.
 

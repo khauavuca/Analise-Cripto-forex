@@ -130,13 +130,20 @@ class ProvedorCCXT(ProvedorDados):
         Toda corretora limita quantas velas devolve por chamada - a Binance da
         1000 -, entao um intervalo longo vira varias requisicoes encadeadas.
         """
-        salto_vazio = passo * self.limite_por_pagina
-        teto_paginas = (fim_ms - inicio_ms) // salto_vazio + VAZIOS_ATE_DESISTIR + 5
+        # O teto de paginas e uma guarda contra laco infinito, nao uma estimativa
+        # de quantas paginas precisamos. Estima-la a partir de
+        # `limite_por_pagina` foi um erro que custou dois anos de dados: pedimos
+        # 1000 por pagina, a OKX entrega 300, e o laco parou em 18 paginas -
+        # truncando o historico em silencio. Assume-se aqui o pior caso
+        # razoavel de 50 velas por pagina.
+        velas_esperadas = (fim_ms - inicio_ms) // passo + 1
+        teto_paginas = velas_esperadas // 50 + VAZIOS_ATE_DESISTIR + 5
 
         linhas: list[list] = []
         cursor = inicio_ms
         vazias = 0
         paginas = 0
+        tamanho_pagina = 100  # revisto assim que a corretora responder
 
         while cursor <= fim_ms and paginas < teto_paginas:
             paginas += 1
@@ -144,14 +151,16 @@ class ProvedorCCXT(ProvedorDados):
 
             if not lote:
                 # Pode ser fim do historico ou um buraco de indisponibilidade.
-                # Pula a janela e desiste depois de algumas tentativas secas.
+                # Pula uma pagina - do tamanho que a corretora vem entregando,
+                # nao do que pedimos - e desiste depois de algumas secas.
                 vazias += 1
                 if vazias >= VAZIOS_ATE_DESISTIR:
                     break
-                cursor += salto_vazio
+                cursor += passo * tamanho_pagina
                 continue
 
             vazias = 0
+            tamanho_pagina = max(len(lote), 1)
             linhas.extend(lote)
 
             ultimo = int(lote[-1][0])

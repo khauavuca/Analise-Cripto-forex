@@ -270,6 +270,35 @@ class Armazenamento:
             (inicio_ms, fim_ms), self.cobertura(corretora, par, timeframe)
         )
 
+    def limpar_cobertura(self, corretora: str, par: str, timeframe: str) -> int:
+        """Esquece o que ja foi consultado: a proxima carga refaz as lacunas."""
+        with self.conexao:
+            cursor = self.conexao.execute(
+                "DELETE FROM cobertura WHERE corretora=? AND par=? AND timeframe=?",
+                (corretora, par, timeframe),
+            )
+        return int(cursor.rowcount)
+
+    def buracos(self, corretora: str, par: str, timeframe: str, passo_ms: int) -> pd.DataFrame:
+        """Trechos sem vela dentro do que esta gravado. Vazio = serie inteira."""
+        cursor = self.conexao.execute(
+            "SELECT abertura_ms FROM velas WHERE corretora=? AND par=? AND timeframe=? "
+            "ORDER BY abertura_ms",
+            (corretora, par, timeframe),
+        )
+        momentos = [int(l[0]) for l in cursor.fetchall()]
+        linhas = []
+        for anterior, atual in zip(momentos, momentos[1:]):
+            if atual - anterior > passo_ms:
+                linhas.append(
+                    {
+                        "de": pd.Timestamp(anterior + passo_ms, unit="ms", tz="UTC"),
+                        "ate": pd.Timestamp(atual, unit="ms", tz="UTC"),
+                        "velas_faltando": int((atual - anterior) // passo_ms - 1),
+                    }
+                )
+        return pd.DataFrame(linhas, columns=["de", "ate", "velas_faltando"])
+
     # -------------------------------------------------------------- execucoes
 
     def registrar_execucao(

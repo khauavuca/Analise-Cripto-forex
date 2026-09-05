@@ -31,6 +31,17 @@ ENTRAR = "ENTRAR"
 RECUSADA = "RECUSADA"
 
 
+def nome_de_arquivo(nome_do_setup: str) -> str:
+    """Nome do setup convertido para algo que o sistema de arquivos aceita.
+
+    `ema(21/55,evento)` tem uma barra, que viraria subpasta. A mesma regra e
+    usada para gravar o modelo e para procura-lo depois - se divergissem, o
+    `decidir` nunca encontraria o filtro que o `filtro` acabou de salvar.
+    """
+    trocas = {"/": "-", "\\": "-", ":": "-", " ": "_", "*": "x", "?": "", '"': "", "<": "", ">": "", "|": "-"}
+    return "".join(trocas.get(c, c) for c in nome_do_setup)
+
+
 @dataclass
 class Recomendacao:
     vela: str

@@ -255,13 +255,13 @@ Fluxo típico, uma vez por setup:
 
 ```bash
 python cli.py conjunto --estrategia donchian --desde 2022-01-01
-python cli.py filtro --conjunto dados/conjuntos/donchian_4h.csv --salvar "modelos/donchian(20,2atr).pkl"
+python cli.py filtro --conjunto dados/conjuntos/donchian_4h.csv --setup donchian
 python cli.py decidir --estrategias donchian,confluencia --filtros modelos
 ```
 
-O nome do arquivo do modelo tem que ser o nome do setup com parâmetros
-(`donchian(20,2atr).pkl`), porque é assim que `decidir` sabe a qual setup ele
-pertence.
+`--setup` grava o modelo em `modelos/` com o nome que o `decidir` procura
+depois (o nome do setup com parâmetros, ajustado para ser nome de arquivo
+válido). Se preferir escolher o caminho, use `--salvar`.
 
 ### Decisões que sustentam o número
 

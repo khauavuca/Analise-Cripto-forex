@@ -108,18 +108,39 @@ def _preencher_lacunas(
     # ate "agora", a faixa da vela em formacao ficaria marcada como baixada e
     # as velas novas nunca mais seriam buscadas - o cache congelaria no tempo.
     limite_seguro = agora_ms() - duracao_ms(timeframe)
+    passo = duracao_ms(timeframe)
 
     total = 0
     for faixa_inicio, faixa_fim in faltantes:
         quadro = provedor.obter_velas(par, timeframe, inicio=faixa_inicio, fim=faixa_fim)
         total += armazenamento.salvar_velas(provedor.nome, par, timeframe, quadro)
 
-        # Anotada mesmo com retorno vazio: significa que a faixa foi consultada
-        # e a corretora nao tem nada ali. Sem isso, um periodo anterior a
-        # listagem do par seria reconsultado a cada execucao, para sempre.
-        fim_anotado = min(faixa_fim, limite_seguro)
-        if fim_anotado > faixa_inicio:
-            armazenamento.registrar_cobertura(
-                provedor.nome, par, timeframe, faixa_inicio, fim_anotado
-            )
+        # So o que CHEGOU vira cobertura, e por segmento contiguo. Anotar a
+        # faixa pedida foi um erro que custou caro: a OKX devolveu um pedaco,
+        # a faixa inteira ficou marcada como baixada, e um buraco de dois anos
+        # virou permanente - nenhuma execucao futura voltaria la. Retorno vazio
+        # tambem nao e anotado: pode ser periodo anterior a listagem, mas pode
+        # ser falha passageira, e reconsultar custa uma chamada por execucao.
+        for seg_inicio, seg_fim in segmentos_contiguos(quadro, passo):
+            fim_anotado = min(seg_fim, limite_seguro)
+            if fim_anotado > seg_inicio:
+                armazenamento.registrar_cobertura(
+                    provedor.nome, par, timeframe, seg_inicio, fim_anotado
+                )
     return total
+
+
+def segmentos_contiguos(quadro: pd.DataFrame, passo: int) -> list[tuple[int, int]]:
+    """Faixas [inicio, fim) sem buraco, em ms. O fim inclui a duracao da ultima vela."""
+    if quadro is None or quadro.empty:
+        return []
+    momentos = (quadro.index.asi8 // 1_000_000).tolist()
+    segmentos = []
+    inicio = anterior = momentos[0]
+    for atual in momentos[1:]:
+        if atual - anterior > passo:
+            segmentos.append((inicio, anterior + passo))
+            inicio = atual
+        anterior = atual
+    segmentos.append((inicio, anterior + passo))
+    return segmentos
