@@ -1,6 +1,6 @@
 {
   "fuso": "America/Sao_Paulo",
-  "gerado_em": "2026-09-05T11:53:10-03:00",
+  "gerado_em": "2026-09-05T13:58:51-03:00",
   "inicio": "2026-09-05T00:00:00-03:00",
   "fim": "2026-09-12T00:00:00-03:00",
   "banca_inicial": 500.0,
@@ -16,8 +16,8 @@
     "1h",
     "4h"
   ],
-  "ultima_vela": "2026-09-05T10:00:00-03:00",
-  "velas_no_periodo": 65,
+  "ultima_vela": "2026-09-05T12:00:00-03:00",
+  "velas_no_periodo": 80,
   "ranking": [
     {
       "trader": "donchian(20,2atr)",
@@ -72,6 +72,25 @@
       "payoff": null,
       "acerto_para_empatar": 0.0,
       "media_por_operacao": 7.2540063628083935,
+      "em_aberto": 0,
+      "maior_queda": 0.0,
+      "recusadas": 0
+    },
+    {
+      "trader": "estrutura(5/5)",
+      "banca_inicial": 500.0,
+      "banca_atual": 504.37,
+      "resultado": 4.37,
+      "variacao": 0.008740192899193922,
+      "operacoes": 1,
+      "ganhas": 1,
+      "perdidas": 0,
+      "acerto": 1.0,
+      "acerto_de": 0.20654329147389294,
+      "acerto_ate": 1.0,
+      "payoff": null,
+      "acerto_para_empatar": 0.0,
+      "media_por_operacao": 4.370096449596936,
       "em_aberto": 0,
       "maior_queda": 0.0,
       "recusadas": 0
@@ -134,25 +153,6 @@
       "recusadas": 0
     },
     {
-      "trader": "estrutura(5/5)",
-      "banca_inicial": 500.0,
-      "banca_atual": 500.0,
-      "resultado": 0.0,
-      "variacao": 0.0,
-      "operacoes": 0,
-      "ganhas": 0,
-      "perdidas": 0,
-      "acerto": NaN,
-      "acerto_de": NaN,
-      "acerto_ate": NaN,
-      "payoff": 0.0,
-      "acerto_para_empatar": 1.0,
-      "media_por_operacao": NaN,
-      "em_aberto": 0,
-      "maior_queda": 0.0,
-      "recusadas": 0
-    },
-    {
       "trader": "vwap(W,2sd)",
       "banca_inicial": 500.0,
       "banca_atual": 488.73,
@@ -167,7 +167,7 @@
       "payoff": 0.0,
       "acerto_para_empatar": 1.0,
       "media_por_operacao": -11.268396064768394,
-      "em_aberto": 0,
+      "em_aberto": 1,
       "maior_queda": -0.022536792129536853,
       "recusadas": 0
     }
@@ -247,6 +247,21 @@
       "abertas": [],
       "recusadas": {}
     },
+    "estrutura(5/5)": {
+      "banca_atual": 504.37009644959693,
+      "fechadas": [
+        {
+          "momento": "2026-09-05 09:00:00-03:00",
+          "par": "BNB/USDT",
+          "estrategia": "estrutura(5/5)",
+          "valor": 166.4594332618653,
+          "resultado": 4.370096449596936,
+          "saldo": 504.37009644959693
+        }
+      ],
+      "abertas": [],
+      "recusadas": {}
+    },
     "rsi_macd(40/60,evento)": {
       "banca_atual": 500.0,
       "fechadas": [],
@@ -275,12 +290,6 @@
       ],
       "recusadas": {}
     },
-    "estrutura(5/5)": {
-      "banca_atual": 500.0,
-      "fechadas": [],
-      "abertas": [],
-      "recusadas": {}
-    },
     "vwap(W,2sd)": {
       "banca_atual": 488.7316039352316,
       "fechadas": [
@@ -293,7 +302,17 @@
           "saldo": 488.7316039352316
         }
       ],
-      "abertas": [],
+      "abertas": [
+        {
+          "par": "BNB/USDT",
+          "timeframe": "1h",
+          "direcao": -1,
+          "entrada": "2026-09-05 12:00:00-03:00",
+          "preco_entrada": 769.8,
+          "stop": 794.1282109023487,
+          "alvo": 716.4782061207344
+        }
+      ],
       "recusadas": {}
     }
   }
