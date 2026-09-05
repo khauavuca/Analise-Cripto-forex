@@ -106,7 +106,7 @@ foram tocados depois que as estratégias já estavam congeladas.
 
 | Conjunto | Pares | Trades | Acerto | Payoff | Expectância | Fator de lucro |
 |---|---|---|---|---|---|---|
-| Desenvolvimento | BTC, ETH, SOL, BNB, XRP | 411 | 45,0% | 1,33 | +0,099 R | **1,09** |
+| Desenvolvimento | BTC, ETH, SOL, BNB, XRP | 411 | 45,0% | 1,33 | +0,099 R | **1,06** |
 | Nunca olhados | ADA, LINK, AVAX, DOT, LTC | 394 | 40,1% | 1,15 | −0,027 R | **0,77** |
 
 A vantagem aparente no primeiro conjunto **não sobreviveu** no segundo. Nenhum
@@ -147,30 +147,30 @@ olhados** — a única coluna que não sofre de seleção:
 
 | Setup | Trades (novos) | Fator (dev) | **Fator (novos)** | Acerto | Payoff |
 |---|---|---|---|---|---|
-| `ema` | 1056 | 1,00 | **1,17** | 48% [45–51%] | 1,28 |
-| `donchian` | 1624 | 1,01 | 1,01 | 39% | 1,59 |
-| `momento` | 1016 | 0,94 | 0,98 | 42% | 1,37 |
-| `compressao` | 1121 | 0,96 | 0,96 | 36% | 1,68 |
-| `rsi_macd` | 237 | 0,97 | 0,84 | 28% | 2,16 |
-| `confluencia` | 394 | 1,09 | 0,77 | 40% | 1,15 |
-| `estrutura` | 826 | 0,90 | **0,77** | **53%** | 0,64 |
-| `vwap` | 2019 | 0,69 | 0,69 | 25% | 2,05 |
-| `reversao_bb` | 1016 | 0,62 | 0,62 | 29% | 1,52 |
+| `ema` | 1058 | 0,98 | **1,16** | 48% | 1,27 |
+| `donchian` | 1626 | 1,01 | 1,00 | 39% | 1,58 |
+| `momento` | 1016 | 0,93 | 0,98 | 42% | 1,37 |
+| `compressao` | 1122 | 0,94 | 0,95 | 36% | 1,68 |
+| `rsi_macd` | 237 | 0,94 | 0,85 | 28% | 2,20 |
+| `confluencia` | 394 | 1,06 | 0,77 | 40% | 1,15 |
+| `estrutura` | 865 | 0,89 | **0,77** | **53%** | 0,69 |
+| `vwap` | 2049 | 0,63 | 0,65 | 21% | 2,47 |
+| `reversao_bb` | 1024 | 0,63 | 0,63 | 26% | 1,78 |
 
 Três leituras:
 
 **`estrutura` é a demonstração do problema da assertividade.** Tem a maior taxa
 de acerto de todos — 53% nos pares novos — e é um dos que mais perde dinheiro,
-porque o payoff é 0,64: os perdedores são maiores que os ganhadores. Quem
+porque o payoff é 0,69: os perdedores são maiores que os ganhadores. Quem
 escolhesse setup por taxa de acerto escolheria justamente ele.
 
-**A família de reversão perde de forma consistente** (`vwap` 0,69, `reversao_bb`
-0,62 — idênticos nos dois conjuntos). Em cripto, que passa a maior parte do tempo
+**A família de reversão perde de forma consistente** (`vwap` 0,63 e 0,65, `reversao_bb`
+0,63 e 0,63 — praticamente idênticos nos dois conjuntos). Em cripto, que passa a maior parte do tempo
 em tendência, comprar o extremo é ser atropelado. É um resultado estrutural, não
 ruído.
 
 **`ema` é o único candidato real.** Foi o único com fator acima de 1 fora da
-amostra — e melhorou de 1,00 para 1,17 ao sair dela. Nos pares individuais:
+amostra — e melhorou de 0,98 para 1,16 ao sair dela. Nos pares individuais:
 ADA, AVAX e DOT dão p ≤ 0,007 com o retorno praticamente inalterado quando se
 atrasa a execução em 1, 2 ou 3 velas (a assinatura de efeito real) e sobrevivem
 ao dobro do custo; LINK e LTC perdem. É o comportamento esperado de um sistema
@@ -193,7 +193,7 @@ implementada e medida. **Piora:**
 
 | Gatilho | Acerto (5 pares dev) | Fator de lucro | Fator nos 5 pares novos |
 |---|---|---|---|
-| desligado | 45,0% | **1,09** | 0,77 |
+| desligado | 45,0% | **1,06** | 0,77 |
 | 0,3R | 19,3% | 0,90 | 0,80 |
 | 0,5R | 26,0% | 0,93 | 0,73 |
 | 1,0R | 37,0% | 0,99 | 0,78 |
@@ -246,10 +246,13 @@ O que cada peça mostrou ao ser medida:
   não é a mesma coisa que ganhar dinheiro. Só o `donchian` (0,556, R de +468
   para +594 mantendo 29% dos trades) fica acima do controle: hipótese, não
   resultado.
-- **As regras da carteira valem mais que o setup.** Os três setups positivos em
-  90 dias: com regras, +55,8% e rebaixamento de −23,8%; **sem regras, +46,3% e
-  rebaixamento de −52,3%**. E juntar os nove na mesma banca dá +2,6%: os
-  perdedores ocupam as vagas dos ganhadores.
+- **As regras da carteira trocam retorno por sobrevivência.** Os três setups
+  positivos em 90 dias, 10 pares: com regras, +50,2% com pior momento de −23,6%;
+  **sem regras, +72,2% com pior momento de −53,2%**. Metade da queda por um
+  terço do retorno — é a troca que um profissional faz sem pensar, porque a
+  segunda queda de 53% é a que tira alguém do jogo. E juntar os nove setups na
+  mesma banca quase zera o resultado: os perdedores ocupam as vagas dos
+  ganhadores.
 - **Vela a vela é igual a de uma vez.** `testes/test_replay.py` entrega a série
   uma vela por vez e compara: sinais e dinheiro batem. O motor não espia o
   futuro, e isso deixa de ser afirmação para ser teste.
@@ -307,6 +310,11 @@ veredito.
   o erro cai para o lado seguro de propósito.
 - **Vela que abre além do stop preenche na abertura**, não no stop. Assumir o
   contrário esconde exatamente as perdas de cauda.
+- **Stop e alvo valem já na barra de entrada.** Entra-se na abertura; o resto
+  da barra acontece depois, e pode bater no stop. A primeira versão do motor
+  pulava essa checagem e garantia que todo trade sobrevivesse à primeira vela —
+  um trader de teste com stop de 0,1% "ganhou" 123% num mercado subindo. Os
+  números deste documento foram re-medidos depois da correção.
 - **Agregação 4h com `origin="epoch"`** e completude por contagem. Sem isso a
   grade se desloca conforme a data pedida, e o mesmo backtest dá números
   diferentes. O 4h derivado foi conferido contra o 4h nativo da Binance:
