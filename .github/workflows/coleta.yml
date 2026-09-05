@@ -65,6 +65,7 @@ jobs:
             --tfs "${{ inputs.timeframes || '5m,15m,1h' }}" \
             --estrategia todas \
             --ciclos 1 \
+            --velas 40 \
             --jsonl dados/observacoes \
             --banco "$BANCO_DADOS"
 

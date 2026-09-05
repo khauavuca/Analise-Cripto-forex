@@ -33,14 +33,31 @@ class ResumoColeta:
     por_alvo: dict[tuple[str, str], int] = field(default_factory=dict)
 
 
-def _ultima_vela(quadro: pd.DataFrame, sinais: pd.DataFrame, painel: pd.DataFrame):
-    momento = quadro.index[-1]
-    vela = quadro.iloc[-1]
-    sinal = sinais.iloc[-1]
-    indicadores = (
-        {} if painel.empty else {c: painel.iloc[-1][c] for c in painel.columns}
-    )
-    return momento, vela, sinal, indicadores
+def _ultimas_velas(
+    quadro: pd.DataFrame, sinais: pd.DataFrame, painel: pd.DataFrame, quantas: int
+):
+    """As `quantas` ultimas velas fechadas, da mais antiga para a mais nova.
+
+    Gravar so a ultima parece obvio e e uma armadilha: entre duas execucoes
+    passam varias velas, e as do meio somem junto com os sinais que
+    dispararam nelas. Num agendador que atrasa - como o do GitHub, que na
+    pratica chama de duas em duas horas - isso descarta a maior parte do
+    dado. Recolher a janela e deixar a deduplicacao cuidar da repeticao
+    torna a coleta indiferente ao ritmo com que ela e chamada.
+    """
+    quantas = max(1, min(quantas, len(quadro)))
+    for posicao in range(-quantas, 0):
+        indicadores = (
+            {}
+            if painel.empty
+            else {c: painel.iloc[posicao][c] for c in painel.columns}
+        )
+        yield (
+            quadro.index[posicao],
+            quadro.iloc[posicao],
+            sinais.iloc[posicao],
+            indicadores,
+        )
 
 
 def coletar(
@@ -56,6 +73,7 @@ def coletar(
     ciclos_por_pulso: int = 60,
     ciclos_maximos: int | None = None,
     ao_observar=None,
+    velas_por_ciclo: int = 1,
 ) -> ResumoColeta:
     """Acompanha os pares pelo tempo pedido, gravando cada vela fechada.
 
@@ -113,61 +131,61 @@ def coletar(
                     for estrategia in estrategias:
                         sinais = estrategia.gerar_sinais(quadro)
                         painel = estrategia.painel_indicadores(quadro)
-                        momento, vela, sinal, indicadores = _ultima_vela(
-                            quadro, sinais, painel
-                        )
+                        for momento, vela, sinal, indicadores in _ultimas_velas(
+                            quadro, sinais, painel, velas_por_ciclo
+                        ):
 
-                        nova = armazenamento.registrar_observacao(
-                            provedor.nome,
-                            par,
-                            timeframe,
-                            estrategia.nome,
-                            int(momento.timestamp() * 1000),
-                            vela.to_dict(),
-                            {
+                            nova = armazenamento.registrar_observacao(
+                                provedor.nome,
+                                par,
+                                timeframe,
+                                estrategia.nome,
+                                int(momento.timestamp() * 1000),
+                                vela.to_dict(),
+                                {
+                                    "direcao": int(sinal.direcao),
+                                    "forca": float(sinal.forca),
+                                    "stop": None if pd.isna(sinal.stop) else float(sinal.stop),
+                                    "alvo": None if pd.isna(sinal.alvo) else float(sinal.alvo),
+                                    "motivo": str(sinal.motivo),
+                                },
+                                indicadores,
+                            )
+                            registro = {
+                                "par": par,
+                                "timeframe": timeframe,
+                                "estrategia": estrategia.nome,
+                                "vela": momento,
+                                "fechamento": float(vela.fechamento),
                                 "direcao": int(sinal.direcao),
                                 "forca": float(sinal.forca),
+                                # Sem stop e alvo nao da para reconstruir o que
+                                # aconteceu depois do sinal - e reconstruir isso e
+                                # justamente o que mede assertividade.
                                 "stop": None if pd.isna(sinal.stop) else float(sinal.stop),
                                 "alvo": None if pd.isna(sinal.alvo) else float(sinal.alvo),
                                 "motivo": str(sinal.motivo),
-                            },
-                            indicadores,
-                        )
-                        registro = {
-                            "par": par,
-                            "timeframe": timeframe,
-                            "estrategia": estrategia.nome,
-                            "vela": momento,
-                            "fechamento": float(vela.fechamento),
-                            "direcao": int(sinal.direcao),
-                            "forca": float(sinal.forca),
-                            # Sem stop e alvo nao da para reconstruir o que
-                            # aconteceu depois do sinal - e reconstruir isso e
-                            # justamente o que mede assertividade.
-                            "stop": None if pd.isna(sinal.stop) else float(sinal.stop),
-                            "alvo": None if pd.isna(sinal.alvo) else float(sinal.alvo),
-                            "motivo": str(sinal.motivo),
-                        }
-                        # O ouvinte do arquivo recebe a observacao antes da
-                        # checagem do banco, e faz a propria deduplicacao. No
-                        # GitHub Actions o banco nasce vazio a cada execucao,
-                        # entao ele nao serve de memoria - o arquivo do mes e
-                        # que atravessa as execucoes.
-                        if ao_observar:
-                            # Todo dado importa: a barra sem sinal diz se o
-                            # gatilho passou perto ou nem chegou perto, e sem
-                            # ela nao da para estudar o que NAO foi operado.
-                            ao_observar({**registro, "indicadores": indicadores})
-                        if not nova:
-                            continue
+                            }
+                            # O ouvinte do arquivo recebe a observacao antes da
+                            # checagem do banco, e faz a propria deduplicacao. No
+                            # GitHub Actions o banco nasce vazio a cada execucao,
+                            # entao ele nao serve de memoria - o arquivo do mes e
+                            # que atravessa as execucoes.
+                            if ao_observar:
+                                # Todo dado importa: a barra sem sinal diz se o
+                                # gatilho passou perto ou nem chegou perto, e sem
+                                # ela nao da para estudar o que NAO foi operado.
+                                ao_observar({**registro, "indicadores": indicadores})
+                            if not nova:
+                                continue
 
-                        resumo.velas_novas += 1
-                        chave = (par, timeframe)
-                        resumo.por_alvo[chave] = resumo.por_alvo.get(chave, 0) + 1
-                        if int(sinal.direcao) != 0:
-                            resumo.sinais.append(registro)
-                            if ao_registrar:
-                                ao_registrar(registro)
+                            resumo.velas_novas += 1
+                            chave = (par, timeframe)
+                            resumo.por_alvo[chave] = resumo.por_alvo.get(chave, 0) + 1
+                            if int(sinal.direcao) != 0:
+                                resumo.sinais.append(registro)
+                                if ao_registrar:
+                                    ao_registrar(registro)
 
                 except Exception as erro:
                     resumo.erros += 1

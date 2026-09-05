@@ -559,6 +559,7 @@ def comando_monitorar(args) -> int:
         minutos=args.minutos, intervalo_segundos=args.intervalo, ao_registrar=mostrar,
         parar=lambda: pedido_de_parada["sim"],
         ciclos_maximos=args.ciclos if args.ciclos > 0 else None,
+        velas_por_ciclo=args.velas,
         ao_observar=ao_observar,
     )
 
@@ -809,6 +810,11 @@ def montar_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--jsonl", default=None, metavar="PASTA",
         help="grava tambem em JSONL nesta pasta, um arquivo por mes",
+    )
+    p.add_argument(
+        "--velas", type=int, default=1, metavar="N",
+        help="grava as N ultimas velas fechadas por ciclo, nao so a ultima. "
+             "Use um valor que cubra o intervalo entre execucoes",
     )
     p.set_defaults(funcao=comando_monitorar)
 

@@ -62,10 +62,15 @@ python cli.py calibrar
 
 ## Limitações honestas
 
-O intervalo mínimo do agendador é **5 minutos**, então timeframe de 1m fica de
-fora — de 5m para cima funciona. O GitHub **atrasa** o disparo quando a fila
-está cheia; como cada execução busca a última vela fechada e o arquivo ignora
-repetição, o efeito é no máximo algumas velas coletadas juntas depois.
+O intervalo mínimo do agendador é **5 minutos**, mas na prática o GitHub
+enfileira cron de alta frequência e dispara bem mais espaçado — o observado
+aqui foi de duas em duas horas.
+
+Isso seria fatal se cada execução gravasse só a última vela fechada: em duas
+horas passam 24 velas de 5m, e 23 se perderiam junto com os sinais que
+dispararam nelas. Por isso a coleta grava uma **janela** de 40 velas por
+execução e deixa a deduplicação descartar o que já está no arquivo — assim o
+resultado independe do ritmo com que o GitHub resolve chamar.
 
 Tarefas agendadas são desativadas após **60 dias sem atividade no
 repositório** — os commits da própria coleta ajudam, mas vale saber que existe.
