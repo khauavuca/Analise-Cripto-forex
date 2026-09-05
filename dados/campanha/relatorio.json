@@ -1,6 +1,6 @@
 {
   "fuso": "America/Sao_Paulo",
-  "gerado_em": "2026-09-05T15:47:45-03:00",
+  "gerado_em": "2026-09-05T17:44:55-03:00",
   "inicio": "2026-09-05T00:00:00-03:00",
   "fim": "2026-09-12T00:00:00-03:00",
   "banca_inicial": 500.0,
@@ -16,8 +16,8 @@
     "1h",
     "4h"
   ],
-  "ultima_vela": "2026-09-05T14:00:00-03:00",
-  "velas_no_periodo": 90,
+  "ultima_vela": "2026-09-05T16:00:00-03:00",
+  "velas_no_periodo": 105,
   "ranking": [
     {
       "trader": "donchian(20,2atr)",
@@ -34,7 +34,7 @@
       "payoff": null,
       "acerto_para_empatar": 0.0,
       "media_por_operacao": 11.506183476842617,
-      "em_aberto": 4,
+      "em_aberto": 5,
       "maior_queda": 0.0,
       "recusadas": 0
     },
@@ -53,7 +53,7 @@
       "payoff": null,
       "acerto_para_empatar": 0.0,
       "media_por_operacao": 7.31839832464,
-      "em_aberto": 1,
+      "em_aberto": 2,
       "maior_queda": 0.0,
       "recusadas": 0
     },
@@ -72,7 +72,7 @@
       "payoff": null,
       "acerto_para_empatar": 0.0,
       "media_por_operacao": 7.2540063628083935,
-      "em_aberto": 0,
+      "em_aberto": 1,
       "maior_queda": 0.0,
       "recusadas": 0
     },
@@ -91,7 +91,7 @@
       "payoff": null,
       "acerto_para_empatar": 0.0,
       "media_por_operacao": 4.370096449596936,
-      "em_aberto": 0,
+      "em_aberto": 1,
       "maior_queda": 0.0,
       "recusadas": 0
     },
@@ -205,6 +205,15 @@
           "alvo": 2516.6521044664455
         },
         {
+          "par": "SOL/USDT",
+          "timeframe": "1h",
+          "direcao": 1,
+          "entrada": "2026-09-05 15:00:00-03:00",
+          "preco_entrada": 104.25,
+          "stop": 102.90268453417377,
+          "alvo": 106.82463093165244
+        },
+        {
           "par": "BNB/USDT",
           "timeframe": "1h",
           "direcao": 1,
@@ -239,6 +248,15 @@
       ],
       "abertas": [
         {
+          "par": "BTC/USDT",
+          "timeframe": "1h",
+          "direcao": 1,
+          "entrada": "2026-09-05 15:00:00-03:00",
+          "preco_entrada": 80064.9,
+          "stop": 79693.14601592468,
+          "alvo": 80808.40796815064
+        },
+        {
           "par": "XRP/USDT",
           "timeframe": "1h",
           "direcao": 1,
@@ -262,7 +280,17 @@
           "saldo": 507.2540063628084
         }
       ],
-      "abertas": [],
+      "abertas": [
+        {
+          "par": "SOL/USDT",
+          "timeframe": "1h",
+          "direcao": 1,
+          "entrada": "2026-09-05 15:00:00-03:00",
+          "preco_entrada": 104.25,
+          "stop": 102.99747242004844,
+          "alvo": 106.02879136992733
+        }
+      ],
       "recusadas": {}
     },
     "estrutura(5/5)": {
@@ -277,7 +305,17 @@
           "saldo": 504.37009644959693
         }
       ],
-      "abertas": [],
+      "abertas": [
+        {
+          "par": "BNB/USDT",
+          "timeframe": "4h",
+          "direcao": 1,
+          "entrada": "2026-09-05 13:00:00-03:00",
+          "preco_entrada": 770.0,
+          "stop": 702.4651246008958,
+          "alvo": 791.6999999999999
+        }
+      ],
       "recusadas": {}
     },
     "rsi_macd(40/60,evento)": {
