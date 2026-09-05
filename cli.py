@@ -720,6 +720,77 @@ def comando_rastrear(args) -> int:
 
 
 
+# -------------------------------------------------------------------- simular
+
+
+def comando_simular(args) -> int:
+    """Traduz os setups para dinheiro: quanto uma banca vira em N dias."""
+    import numpy as np
+
+    from nucleo.backtest.simulacao import ConfigBanca, comparar
+
+    provedor, armazenamento = _contexto(args)
+    pares = [p.strip() for p in args.pares.split(",")]
+    inicio = datetime.now(timezone.utc) - timedelta(days=args.dias)
+    aquecimento = max(construir(n).barras_de_aquecimento() for n in ESTRATEGIAS)
+
+    print(f"carregando {args.dias} dias de {args.tf} para {len(pares)} pares...")
+    quadros = {}
+    for par in pares:
+        quadros[par] = carregar(
+            par, args.tf, inicio, provedor=provedor, armazenamento=armazenamento,
+            barras_aquecimento=aquecimento, usar_rede=not args.offline,
+        )
+
+    por_setup = {}
+    for nome in ESTRATEGIAS:
+        todos = []
+        for par, quadro in quadros.items():
+            if quadro.empty:
+                continue
+            resultado = executar(
+                quadro, construir(nome).gerar_sinais(quadro), _custos(args), _config(args)
+            )
+            trades = resultado.trades.copy()
+            trades["par"] = par
+            todos.append(trades)
+        por_setup[nome] = (
+            pd.concat(todos, ignore_index=True) if todos else pd.DataFrame()
+        )
+
+    banca = ConfigBanca(
+        inicial=args.banca,
+        risco_por_trade=args.risco,
+        valor_minimo_ordem=args.ordem_minima,
+        moeda=args.moeda,
+    )
+
+    print()
+    print(
+        f"=== {args.moeda} {args.banca:g} em {args.dias} dias | {args.tf} | "
+        f"{len(pares)} pares | risco {args.risco:.0%} por trade ==="
+    )
+    print(comparar(por_setup, banca).to_string(index=False))
+
+    retornos = [
+        float(q.fechamento.iloc[-1] / q.abertura.iloc[0] - 1)
+        for q in quadros.values() if len(q) > 1
+    ]
+    if retornos:
+        print()
+        print(f"comprar e segurar no mesmo periodo: media {np.mean(retornos):+.1%}")
+
+    print()
+    print(
+        "Cuidado ao ler: este periodo ja foi olhado, entao o numero mede a\n"
+        "MECANICA (dimensionamento, custo, frequencia), nao a vantagem. Para\n"
+        "vantagem, so o que a coleta ao vivo acumular daqui para frente."
+    )
+    armazenamento.fechar()
+    return 0
+
+
+
 # ----------------------------------------------------------------------- main
 
 
@@ -817,6 +888,24 @@ def montar_parser() -> argparse.ArgumentParser:
              "Use um valor que cubra o intervalo entre execucoes",
     )
     p.set_defaults(funcao=comando_monitorar)
+
+    p = sub.add_parser("simular", help="quanto uma banca vira em cada setup")
+    p.add_argument("--banco", default=None)
+    p.add_argument("--corretora", default=None)
+    p.add_argument("--pares", default="BTC/USDT,ETH/USDT,SOL/USDT,BNB/USDT,XRP/USDT")
+    p.add_argument("--tf", default="4h")
+    p.add_argument("--dias", type=int, default=90)
+    p.add_argument("--banca", type=float, default=100.0)
+    p.add_argument("--moeda", default="USDT")
+    p.add_argument("--ordem-minima", type=float, default=1.0, dest="ordem_minima")
+    p.add_argument("--offline", action="store_true")
+    p.add_argument("--taxa", type=float, default=0.001)
+    p.add_argument("--slippage", type=float, default=0.0005)
+    p.add_argument("--max-barras", type=int, default=48, dest="max_barras")
+    p.add_argument("--ambiguidade", default="pessimista", choices=("pessimista", "otimista"))
+    p.add_argument("--dimensionamento", default="risco", choices=("risco", "fixo"))
+    p.add_argument("--risco", type=float, default=0.02)
+    p.set_defaults(funcao=comando_simular)
 
     p = sub.add_parser("rastrear", help="mede o acerto real dos sinais coletados")
     p.add_argument("--banco", default=None)
