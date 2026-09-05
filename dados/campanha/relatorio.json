@@ -1,6 +1,6 @@
 {
   "fuso": "America/Sao_Paulo",
-  "gerado_em": "2026-09-05T05:34:46-03:00",
+  "gerado_em": "2026-09-05T09:00:49-03:00",
   "inicio": "2026-09-05T00:00:00-03:00",
   "fim": "2026-09-12T00:00:00-03:00",
   "banca_inicial": 500.0,
@@ -16,8 +16,8 @@
     "1h",
     "4h"
   ],
-  "ultima_vela": "2026-09-05T04:00:00-03:00",
-  "velas_no_periodo": 30,
+  "ultima_vela": "2026-09-05T08:00:00-03:00",
+  "velas_no_periodo": 55,
   "ranking": [
     {
       "trader": "compressao(20/1.5)",
@@ -34,6 +34,25 @@
       "payoff": null,
       "acerto_para_empatar": 0.0,
       "media_por_operacao": 7.31839832464,
+      "em_aberto": 0,
+      "maior_queda": 0.0,
+      "recusadas": 0
+    },
+    {
+      "trader": "ema(21/55,evento)",
+      "banca_inicial": 500.0,
+      "banca_atual": 507.25,
+      "resultado": 7.25,
+      "variacao": 0.014508012725616748,
+      "operacoes": 1,
+      "ganhas": 1,
+      "perdidas": 0,
+      "acerto": 1.0,
+      "acerto_de": 0.20654329147389294,
+      "acerto_ate": 1.0,
+      "payoff": null,
+      "acerto_para_empatar": 0.0,
+      "media_por_operacao": 7.2540063628083935,
       "em_aberto": 0,
       "maior_queda": 0.0,
       "recusadas": 0
@@ -58,25 +77,6 @@
       "recusadas": 0
     },
     {
-      "trader": "ema(21/55,evento)",
-      "banca_inicial": 500.0,
-      "banca_atual": 500.0,
-      "resultado": 0.0,
-      "variacao": 0.0,
-      "operacoes": 0,
-      "ganhas": 0,
-      "perdidas": 0,
-      "acerto": NaN,
-      "acerto_de": NaN,
-      "acerto_ate": NaN,
-      "payoff": 0.0,
-      "acerto_para_empatar": 1.0,
-      "media_por_operacao": NaN,
-      "em_aberto": 1,
-      "maior_queda": 0.0,
-      "recusadas": 0
-    },
-    {
       "trader": "donchian(20,2atr)",
       "banca_inicial": 500.0,
       "banca_atual": 500.0,
@@ -91,7 +91,7 @@
       "payoff": 0.0,
       "acerto_para_empatar": 1.0,
       "media_por_operacao": NaN,
-      "em_aberto": 0,
+      "em_aberto": 1,
       "maior_queda": 0.0,
       "recusadas": 0
     },
@@ -148,7 +148,7 @@
       "payoff": 0.0,
       "acerto_para_empatar": 1.0,
       "media_por_operacao": NaN,
-      "em_aberto": 0,
+      "em_aberto": 1,
       "maior_queda": 0.0,
       "recusadas": 0
     },
@@ -188,13 +188,28 @@
       "abertas": [],
       "recusadas": {}
     },
+    "ema(21/55,evento)": {
+      "banca_atual": 507.2540063628084,
+      "fechadas": [
+        {
+          "momento": "2026-09-05 05:00:00-03:00",
+          "par": "BNB/USDT",
+          "estrategia": "ema(21/55,evento)",
+          "valor": 500.0,
+          "resultado": 7.2540063628083935,
+          "saldo": 507.2540063628084
+        }
+      ],
+      "abertas": [],
+      "recusadas": {}
+    },
     "rsi_macd(40/60,evento)": {
       "banca_atual": 500.0,
       "fechadas": [],
       "abertas": [],
       "recusadas": {}
     },
-    "ema(21/55,evento)": {
+    "donchian(20,2atr)": {
       "banca_atual": 500.0,
       "fechadas": [],
       "abertas": [
@@ -202,18 +217,12 @@
           "par": "BNB/USDT",
           "timeframe": "1h",
           "direcao": 1,
-          "entrada": "2026-09-05 04:00:00-03:00",
-          "preco_entrada": 727.3,
-          "stop": 718.8026974859638,
-          "alvo": 740.0459537710542
+          "entrada": "2026-09-05 05:00:00-03:00",
+          "preco_entrada": 738.4,
+          "stop": 728.4868102428813,
+          "alvo": 757.6263795142376
         }
       ],
-      "recusadas": {}
-    },
-    "donchian(20,2atr)": {
-      "banca_atual": 500.0,
-      "fechadas": [],
-      "abertas": [],
       "recusadas": {}
     },
     "momento(60,0.5sd)": {
@@ -231,7 +240,17 @@
     "vwap(W,2sd)": {
       "banca_atual": 500.0,
       "fechadas": [],
-      "abertas": [],
+      "abertas": [
+        {
+          "par": "BNB/USDT",
+          "timeframe": "1h",
+          "direcao": -1,
+          "entrada": "2026-09-05 06:00:00-03:00",
+          "preco_entrada": 749.9,
+          "stop": 767.7805715094238,
+          "alvo": 708.258250458809
+        }
+      ],
       "recusadas": {}
     },
     "estrutura(5/5)": {

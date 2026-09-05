@@ -1,23 +1,23 @@
 CAMPANHA DE TESTE - dinheiro de mentira, mercado de verdade
-Periodo: 05/09/2026 ate 11/09/2026 | atualizado em 05/09 05:34 (horario de Brasilia)
-Ultima vela considerada: 05/09 04:00
+Periodo: 05/09/2026 ate 11/09/2026 | atualizado em 05/09 09:00 (horario de Brasilia)
+Ultima vela considerada: 05/09 08:00
 Cada trader comecou com R$ 500,00 e gerencia a propria banca com as mesmas regras: arrisca 2% por operacao, no maximo 3 operacoes ao mesmo tempo, e para o dia se perder 6%.
 Pares: BTC/USDT, ETH/USDT, SOL/USDT, BNB/USDT, XRP/USDT | graficos: 1h, 4h
 
  1o  compressao(20/1.5)            R$ 507,32  (+R$ 7,32, +1,5%)
       1 operacoes: 1 ganhas, 0 perdidas | acerto 100% (entre 21% e 100%) | payoff: so ganhos ate agora | media por operacao +R$ 7,32
- 2o  rsi_macd(40/60,evento)        R$ 500,00  (+R$ 0,00, +0,0%)
+ 2o  ema(21/55,evento)             R$ 507,25  (+R$ 7,25, +1,5%)
+      1 operacoes: 1 ganhas, 0 perdidas | acerto 100% (entre 21% e 100%) | payoff: so ganhos ate agora | media por operacao +R$ 7,25
+ 3o  rsi_macd(40/60,evento)        R$ 500,00  (+R$ 0,00, +0,0%)
       0 operacoes: 0 ganhas, 0 perdidas
- 3o  ema(21/55,evento)             R$ 500,00  (+R$ 0,00, +0,0%)
-      0 operacoes: 0 ganhas, 0 perdidas | 1 em aberto
  4o  donchian(20,2atr)             R$ 500,00  (+R$ 0,00, +0,0%)
-      0 operacoes: 0 ganhas, 0 perdidas
+      0 operacoes: 0 ganhas, 0 perdidas | 1 em aberto
  5o  momento(60,0.5sd)             R$ 500,00  (+R$ 0,00, +0,0%)
       0 operacoes: 0 ganhas, 0 perdidas
  6o  reversao_bb(20,adx<20)        R$ 500,00  (+R$ 0,00, +0,0%)
       0 operacoes: 0 ganhas, 0 perdidas
  7o  vwap(W,2sd)                   R$ 500,00  (+R$ 0,00, +0,0%)
-      0 operacoes: 0 ganhas, 0 perdidas
+      0 operacoes: 0 ganhas, 0 perdidas | 1 em aberto
  8o  estrutura(5/5)                R$ 500,00  (+R$ 0,00, +0,0%)
       0 operacoes: 0 ganhas, 0 perdidas
 
