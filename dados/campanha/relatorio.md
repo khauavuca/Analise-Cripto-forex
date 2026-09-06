@@ -1,6 +1,6 @@
 CAMPANHA DE TESTE - dinheiro de mentira, mercado de verdade
-Periodo: 05/09/2026 ate 11/09/2026 | atualizado em 06/09 12:24 (horario de Brasilia)
-Ultima vela considerada: 06/09 11:00
+Periodo: 05/09/2026 ate 11/09/2026 | atualizado em 06/09 14:38 (horario de Brasilia)
+Ultima vela considerada: 06/09 13:00
 Cada trader comecou com R$ 500,00 e gerencia a propria banca com as mesmas regras: arrisca 2% por operacao, no maximo 3 operacoes ao mesmo tempo, e para o dia se perder 6%.
 Pares: BTC/USDT, ETH/USDT, SOL/USDT, BNB/USDT, XRP/USDT | graficos: 1h, 4h
 
@@ -14,14 +14,14 @@ Pares: BTC/USDT, ETH/USDT, SOL/USDT, BNB/USDT, XRP/USDT | graficos: 1h, 4h
       0 operacoes: 0 ganhas, 0 perdidas
  5o  momento(60,0.5sd)             R$ 500,00  (+R$ 0,00, +0,0%)
       0 operacoes: 0 ganhas, 0 perdidas | 1 em aberto
- 6o  reversao_bb(20,adx<20)        R$ 492,33  (-R$ 7,67, -1,5%)
-      3 operacoes: 0 ganhas, 3 perdidas | acerto 0% (entre 0% e 56%) | payoff: so perdas ate agora | media por operacao -R$ 2,56 | pior momento -1,5%
- 7o  ema(21/55,evento)             R$ 491,75  (-R$ 8,25, -1,6%)
-      3 operacoes: 1 ganhas, 2 perdidas | acerto 33% (entre 6% e 79%) | payoff 0,94 | precisa acertar 52% para empatar | media por operacao -R$ 2,75 | pior momento -3,1%
+ 6o  ema(21/55,evento)             R$ 491,75  (-R$ 8,25, -1,6%)
+      3 operacoes: 1 ganhas, 2 perdidas | acerto 33% (entre 6% e 79%) | payoff 0,94 | precisa acertar 52% para empatar | media por operacao -R$ 2,75 | 1 em aberto | pior momento -3,1%
+ 7o  reversao_bb(20,adx<20)        R$ 490,03  (-R$ 9,97, -2,0%)
+      4 operacoes: 0 ganhas, 4 perdidas | acerto 0% (entre 0% e 49%) | payoff: so perdas ate agora | media por operacao -R$ 2,49 | pior momento -2,0%
  8o  vwap(W,2sd)                   R$ 488,73  (-R$ 11,27, -2,3%)
       1 operacoes: 0 ganhas, 1 perdidas | acerto 0% (entre 0% e 79%) | payoff: so perdas ate agora | media por operacao -R$ 11,27 | 3 em aberto | pior momento -2,3%
 
-AINDA E CEDO: nenhum trader passou de 30 operacoes fechadas (o maximo foi 3). Com poucas operacoes a ordem acima e sorte, nao habilidade. A campanha existe para acumular operacoes; a ordem so vale quando a amostra crescer.
+AINDA E CEDO: nenhum trader passou de 30 operacoes fechadas (o maximo foi 4). Com poucas operacoes a ordem acima e sorte, nao habilidade. A campanha existe para acumular operacoes; a ordem so vale quando a amostra crescer.
 
 Como ler:
 - 'ganha' e operacao que fechou com lucro depois das taxas; 'em aberto' ainda nao bateu alvo nem stop; 'pior momento' e quanto a banca chegou a cair do topo.
