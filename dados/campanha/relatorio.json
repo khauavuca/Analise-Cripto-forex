@@ -1,6 +1,6 @@
 {
   "fuso": "America/Sao_Paulo",
-  "gerado_em": "2026-09-06T18:34:27-03:00",
+  "gerado_em": "2026-09-06T20:05:25-03:00",
   "inicio": "2026-09-05T00:00:00-03:00",
   "fim": "2026-09-12T00:00:00-03:00",
   "banca_inicial": 500.0,
@@ -16,8 +16,8 @@
     "1h",
     "4h"
   ],
-  "ultima_vela": "2026-09-06T17:00:00-03:00",
-  "velas_no_periodo": 260,
+  "ultima_vela": "2026-09-06T19:00:00-03:00",
+  "velas_no_periodo": 270,
   "ranking": [
     {
       "trader": "estrutura(5/5)",
@@ -110,7 +110,7 @@
       "payoff": 0.0,
       "acerto_para_empatar": 1.0,
       "media_por_operacao": NaN,
-      "em_aberto": 1,
+      "em_aberto": 2,
       "maior_queda": 0.0,
       "recusadas": 0
     },
@@ -286,6 +286,15 @@
       "banca_atual": 500.0,
       "fechadas": [],
       "abertas": [
+        {
+          "par": "BTC/USDT",
+          "timeframe": "1h",
+          "direcao": -1,
+          "entrada": "2026-09-06 18:00:00-03:00",
+          "preco_entrada": 79919.0,
+          "stop": 80638.18174287575,
+          "alvo": 78480.63651424849
+        },
         {
           "par": "SOL/USDT",
           "timeframe": "1h",

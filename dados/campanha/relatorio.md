@@ -1,6 +1,6 @@
 CAMPANHA DE TESTE - dinheiro de mentira, mercado de verdade
-Periodo: 05/09/2026 ate 11/09/2026 | atualizado em 06/09 18:34 (horario de Brasilia)
-Ultima vela considerada: 06/09 17:00
+Periodo: 05/09/2026 ate 11/09/2026 | atualizado em 06/09 20:05 (horario de Brasilia)
+Ultima vela considerada: 06/09 19:00
 Cada trader comecou com R$ 500,00 e gerencia a propria banca com as mesmas regras: arrisca 2% por operacao, no maximo 3 operacoes ao mesmo tempo, e para o dia se perder 6%.
 Pares: BTC/USDT, ETH/USDT, SOL/USDT, BNB/USDT, XRP/USDT | graficos: 1h, 4h
 
@@ -13,7 +13,7 @@ Pares: BTC/USDT, ETH/USDT, SOL/USDT, BNB/USDT, XRP/USDT | graficos: 1h, 4h
  4o  rsi_macd(40/60,evento)        R$ 500,00  (+R$ 0,00, +0,0%)
       0 operacoes: 0 ganhas, 0 perdidas
  5o  momento(60,0.5sd)             R$ 500,00  (+R$ 0,00, +0,0%)
-      0 operacoes: 0 ganhas, 0 perdidas | 1 em aberto
+      0 operacoes: 0 ganhas, 0 perdidas | 2 em aberto
  6o  ema(21/55,evento)             R$ 491,75  (-R$ 8,25, -1,6%)
       3 operacoes: 1 ganhas, 2 perdidas | acerto 33% (entre 6% e 79%) | payoff 0,94 | precisa acertar 52% para empatar | media por operacao -R$ 2,75 | 1 em aberto | pior momento -3,1%
  7o  reversao_bb(20,adx<20)        R$ 490,03  (-R$ 9,97, -2,0%)
