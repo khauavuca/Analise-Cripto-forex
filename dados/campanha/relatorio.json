@@ -1,6 +1,6 @@
 {
   "fuso": "America/Sao_Paulo",
-  "gerado_em": "2026-09-06T05:03:12-03:00",
+  "gerado_em": "2026-09-06T09:06:46-03:00",
   "inicio": "2026-09-05T00:00:00-03:00",
   "fim": "2026-09-12T00:00:00-03:00",
   "banca_inicial": 500.0,
@@ -16,8 +16,8 @@
     "1h",
     "4h"
   ],
-  "ultima_vela": "2026-09-06T04:00:00-03:00",
-  "velas_no_periodo": 180,
+  "ultima_vela": "2026-09-06T08:00:00-03:00",
+  "velas_no_periodo": 205,
   "ranking": [
     {
       "trader": "donchian(20,2atr)",
@@ -91,7 +91,7 @@
       "payoff": 0.0,
       "acerto_para_empatar": 1.0,
       "media_por_operacao": NaN,
-      "em_aberto": 0,
+      "em_aberto": 1,
       "maior_queda": 0.0,
       "recusadas": 0
     },
@@ -278,7 +278,17 @@
     "momento(60,0.5sd)": {
       "banca_atual": 500.0,
       "fechadas": [],
-      "abertas": [],
+      "abertas": [
+        {
+          "par": "SOL/USDT",
+          "timeframe": "1h",
+          "direcao": 1,
+          "entrada": "2026-09-06 08:00:00-03:00",
+          "preco_entrada": 106.65,
+          "stop": 104.1098268461383,
+          "alvo": 111.70034630772341
+        }
+      ],
       "recusadas": {}
     },
     "compressao(20/1.5)": {
