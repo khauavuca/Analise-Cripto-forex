@@ -1,6 +1,6 @@
 {
   "fuso": "America/Sao_Paulo",
-  "gerado_em": "2026-09-05T20:59:58-03:00",
+  "gerado_em": "2026-09-06T00:28:50-03:00",
   "inicio": "2026-09-05T00:00:00-03:00",
   "fim": "2026-09-12T00:00:00-03:00",
   "banca_inicial": 500.0,
@@ -16,8 +16,8 @@
     "1h",
     "4h"
   ],
-  "ultima_vela": "2026-09-05T20:00:00-03:00",
-  "velas_no_periodo": 130,
+  "ultima_vela": "2026-09-05T23:00:00-03:00",
+  "velas_no_periodo": 145,
   "ranking": [
     {
       "trader": "donchian(20,2atr)",

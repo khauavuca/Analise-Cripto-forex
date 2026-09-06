@@ -1,6 +1,6 @@
 CAMPANHA DE TESTE - dinheiro de mentira, mercado de verdade
-Periodo: 05/09/2026 ate 11/09/2026 | atualizado em 05/09 20:59 (horario de Brasilia)
-Ultima vela considerada: 05/09 20:00
+Periodo: 05/09/2026 ate 11/09/2026 | atualizado em 06/09 00:28 (horario de Brasilia)
+Ultima vela considerada: 05/09 23:00
 Cada trader comecou com R$ 500,00 e gerencia a propria banca com as mesmas regras: arrisca 2% por operacao, no maximo 3 operacoes ao mesmo tempo, e para o dia se perder 6%.
 Pares: BTC/USDT, ETH/USDT, SOL/USDT, BNB/USDT, XRP/USDT | graficos: 1h, 4h
 
