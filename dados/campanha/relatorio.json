@@ -1,6 +1,6 @@
 {
   "fuso": "America/Sao_Paulo",
-  "gerado_em": "2026-09-06T14:38:22-03:00",
+  "gerado_em": "2026-09-06T16:29:07-03:00",
   "inicio": "2026-09-05T00:00:00-03:00",
   "fim": "2026-09-12T00:00:00-03:00",
   "banca_inicial": 500.0,
@@ -16,8 +16,8 @@
     "1h",
     "4h"
   ],
-  "ultima_vela": "2026-09-06T13:00:00-03:00",
-  "velas_no_periodo": 235,
+  "ultima_vela": "2026-09-06T15:00:00-03:00",
+  "velas_no_periodo": 245,
   "ranking": [
     {
       "trader": "estrutura(5/5)",
