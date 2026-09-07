@@ -1,6 +1,6 @@
 CAMPANHA DE TESTE - dinheiro de mentira, mercado de verdade
-Periodo: 05/09/2026 ate 11/09/2026 | atualizado em 07/09 16:42 (horario de Brasilia)
-Ultima vela considerada: 07/09 15:00
+Periodo: 05/09/2026 ate 11/09/2026 | atualizado em 07/09 19:16 (horario de Brasilia)
+Ultima vela considerada: 07/09 18:00
 Cada trader comecou com R$ 500,00 e gerencia a propria banca com as mesmas regras: arrisca 2% por operacao, no maximo 3 operacoes ao mesmo tempo, e para o dia se perder 6%.
 Pares: BTC/USDT, ETH/USDT, SOL/USDT, BNB/USDT, XRP/USDT | graficos: 1h, 4h
 
@@ -15,7 +15,7 @@ Pares: BTC/USDT, ETH/USDT, SOL/USDT, BNB/USDT, XRP/USDT | graficos: 1h, 4h
  5o  compressao(20/1.5)            R$ 495,07  (-R$ 4,93, -1,0%)
       5 operacoes: 2 ganhas, 3 perdidas | acerto 40% (entre 12% e 77%) | payoff 1,10 | precisa acertar 48% para empatar | media por operacao -R$ 0,99 | 3 em aberto | pior momento -2,4%
  6o  reversao_bb(20,adx<20)        R$ 494,08  (-R$ 5,92, -1,2%)
-      5 operacoes: 1 ganhas, 4 perdidas | acerto 20% (entre 4% e 62%) | payoff 1,63 | precisa acertar 38% para empatar | media por operacao -R$ 1,18 | 3 em aberto | pior momento -2,0%
+      5 operacoes: 1 ganhas, 4 perdidas | acerto 20% (entre 4% e 62%) | payoff 1,63 | precisa acertar 38% para empatar | media por operacao -R$ 1,18 | 4 em aberto | pior momento -2,0%
  7o  momento(60,0.5sd)             R$ 487,24  (-R$ 12,76, -2,6%)
       2 operacoes: 0 ganhas, 2 perdidas | acerto 0% (entre 0% e 66%) | payoff: so perdas ate agora | media por operacao -R$ 6,38 | 5 em aberto | pior momento -2,6%
  8o  ema(21/55,evento)             R$ 484,20  (-R$ 15,80, -3,2%)
