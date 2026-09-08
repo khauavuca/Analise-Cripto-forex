@@ -1,27 +1,27 @@
 CAMPANHA DE TESTE - dinheiro de mentira, mercado de verdade
-Periodo: 05/09/2026 ate 11/09/2026 | atualizado em 08/09 06:24 (horario de Brasilia)
-Ultima vela considerada: 08/09 05:00
+Periodo: 05/09/2026 ate 11/09/2026 | atualizado em 08/09 10:43 (horario de Brasilia)
+Ultima vela considerada: 08/09 09:00
 Cada trader comecou com R$ 500,00 e gerencia a propria banca com as mesmas regras: arrisca 2% por operacao, no maximo 3 operacoes ao mesmo tempo, e para o dia se perder 6%.
 Pares: BTC/USDT, ETH/USDT, SOL/USDT, BNB/USDT, XRP/USDT | graficos: 1h, 4h
 
- 1o  compressao(20/1.5)            R$ 505,22  (+R$ 5,22, +1,0%)
-      3 operacoes: 2 ganhas, 1 perdidas | acerto 67% (entre 21% e 94%) | payoff 0,91 | precisa acertar 52% para empatar | media por operacao +R$ 1,74 | 3 em aberto | pior momento -1,3%
- 2o  estrutura(5/5)                R$ 504,37  (+R$ 4,37, +0,9%)
+ 1o  estrutura(5/5)                R$ 504,37  (+R$ 4,37, +0,9%)
       1 operacoes: 1 ganhas, 0 perdidas | acerto 100% (entre 21% e 100%) | payoff: so ganhos ate agora | media por operacao +R$ 4,37 | 3 em aberto
- 3o  vwap(W,2sd)                   R$ 500,76  (+R$ 0,76, +0,2%)
+ 2o  vwap(W,2sd)                   R$ 500,76  (+R$ 0,76, +0,2%)
       5 operacoes: 3 ganhas, 2 perdidas | acerto 60% (entre 23% e 88%) | payoff 0,70 | precisa acertar 59% para empatar | media por operacao +R$ 0,15 | 2 em aberto | pior momento -2,3%
- 4o  rsi_macd(40/60,evento)        R$ 500,00  (+R$ 0,00, +0,0%)
+ 3o  rsi_macd(40/60,evento)        R$ 500,00  (+R$ 0,00, +0,0%)
       0 operacoes: 0 ganhas, 0 perdidas
- 5o  reversao_bb(20,adx<20)        R$ 494,08  (-R$ 5,92, -1,2%)
-      5 operacoes: 1 ganhas, 4 perdidas | acerto 20% (entre 4% e 62%) | payoff 1,63 | precisa acertar 38% para empatar | media por operacao -R$ 1,18 | 3 em aberto | pior momento -2,0%
+ 4o  compressao(20/1.5)            R$ 499,53  (-R$ 0,47, -0,1%)
+      4 operacoes: 2 ganhas, 2 perdidas | acerto 50% (entre 15% e 85%) | payoff 0,96 | precisa acertar 51% para empatar | media por operacao -R$ 0,12 | 2 em aberto | pior momento -1,5%
+ 5o  reversao_bb(20,adx<20)        R$ 496,62  (-R$ 3,38, -0,7%)
+      6 operacoes: 2 ganhas, 4 perdidas | acerto 33% (entre 10% e 70%) | payoff 1,32 | precisa acertar 43% para empatar | media por operacao -R$ 0,56 | 2 em aberto | pior momento -2,0%
  6o  donchian(20,2atr)             R$ 491,46  (-R$ 8,54, -1,7%)
-      4 operacoes: 1 ganhas, 3 perdidas | acerto 25% (entre 5% e 70%) | payoff 1,72 | precisa acertar 37% para empatar | media por operacao -R$ 2,13 | 5 em aberto | pior momento -3,9%
+      4 operacoes: 1 ganhas, 3 perdidas | acerto 25% (entre 5% e 70%) | payoff 1,72 | precisa acertar 37% para empatar | media por operacao -R$ 2,13 | 6 em aberto | pior momento -3,9%
  7o  momento(60,0.5sd)             R$ 489,95  (-R$ 10,05, -2,0%)
       2 operacoes: 1 ganhas, 1 perdidas | acerto 50% (entre 9% e 91%) | payoff 0,11 | precisa acertar 90% para empatar | media por operacao -R$ 5,02 | 4 em aberto | pior momento -2,2%
  8o  ema(21/55,evento)             R$ 478,88  (-R$ 21,12, -4,2%)
-      5 operacoes: 1 ganhas, 4 perdidas | acerto 20% (entre 4% e 62%) | payoff 1,02 | precisa acertar 49% para empatar | media por operacao -R$ 4,22 | 2 em aberto | pior momento -5,6%
+      5 operacoes: 1 ganhas, 4 perdidas | acerto 20% (entre 4% e 62%) | payoff 1,02 | precisa acertar 49% para empatar | media por operacao -R$ 4,22 | 3 em aberto | pior momento -5,6%
 
-AINDA E CEDO: nenhum trader passou de 30 operacoes fechadas (o maximo foi 5). Com poucas operacoes a ordem acima e sorte, nao habilidade. A campanha existe para acumular operacoes; a ordem so vale quando a amostra crescer.
+AINDA E CEDO: nenhum trader passou de 30 operacoes fechadas (o maximo foi 6). Com poucas operacoes a ordem acima e sorte, nao habilidade. A campanha existe para acumular operacoes; a ordem so vale quando a amostra crescer.
 
 Como ler:
 - 'ganha' e operacao que fechou com lucro depois das taxas; 'em aberto' ainda nao bateu alvo nem stop; 'pior momento' e quanto a banca chegou a cair do topo.
