@@ -1,6 +1,6 @@
 CAMPANHA DE TESTE - dinheiro de mentira, mercado de verdade
-Periodo: 05/09/2026 ate 11/09/2026 | atualizado em 08/09 14:32 (horario de Brasilia)
-Ultima vela considerada: 08/09 13:00
+Periodo: 05/09/2026 ate 11/09/2026 | atualizado em 08/09 17:10 (horario de Brasilia)
+Ultima vela considerada: 08/09 16:00
 Cada trader comecou com R$ 500,00 e gerencia a propria banca com as mesmas regras: arrisca 2% por operacao, no maximo 3 operacoes ao mesmo tempo, e para o dia se perder 6%.
 Pares: BTC/USDT, ETH/USDT, SOL/USDT, BNB/USDT, XRP/USDT | graficos: 1h, 4h
 
@@ -15,11 +15,11 @@ Pares: BTC/USDT, ETH/USDT, SOL/USDT, BNB/USDT, XRP/USDT | graficos: 1h, 4h
  5o  momento(60,0.5sd)             R$ 489,95  (-R$ 10,05, -2,0%)
       2 operacoes: 1 ganhas, 1 perdidas | acerto 50% (entre 9% e 91%) | payoff 0,11 | precisa acertar 90% para empatar | media por operacao -R$ 5,02 | 3 em aberto | pior momento -2,2%
  6o  reversao_bb(20,adx<20)        R$ 487,82  (-R$ 12,18, -2,4%)
-      6 operacoes: 1 ganhas, 5 perdidas | acerto 17% (entre 3% e 56%) | payoff 1,08 | precisa acertar 48% para empatar | media por operacao -R$ 2,03 | pior momento -3,1%
+      6 operacoes: 1 ganhas, 5 perdidas | acerto 17% (entre 3% e 56%) | payoff 1,08 | precisa acertar 48% para empatar | media por operacao -R$ 2,03 | 1 em aberto | pior momento -3,1%
  7o  donchian(20,2atr)             R$ 484,01  (-R$ 15,99, -3,2%)
-      5 operacoes: 1 ganhas, 4 perdidas | acerto 20% (entre 4% e 62%) | payoff 1,67 | precisa acertar 37% para empatar | media por operacao -R$ 3,20 | 5 em aberto | pior momento -5,4%
+      5 operacoes: 1 ganhas, 4 perdidas | acerto 20% (entre 4% e 62%) | payoff 1,67 | precisa acertar 37% para empatar | media por operacao -R$ 3,20 | 6 em aberto | pior momento -5,4%
  8o  ema(21/55,evento)             R$ 478,88  (-R$ 21,12, -4,2%)
-      5 operacoes: 1 ganhas, 4 perdidas | acerto 20% (entre 4% e 62%) | payoff 1,02 | precisa acertar 49% para empatar | media por operacao -R$ 4,22 | pior momento -5,6%
+      5 operacoes: 1 ganhas, 4 perdidas | acerto 20% (entre 4% e 62%) | payoff 1,02 | precisa acertar 49% para empatar | media por operacao -R$ 4,22 | 1 em aberto | pior momento -5,6%
 
 AINDA E CEDO: nenhum trader passou de 30 operacoes fechadas (o maximo foi 6). Com poucas operacoes a ordem acima e sorte, nao habilidade. A campanha existe para acumular operacoes; a ordem so vale quando a amostra crescer.
 

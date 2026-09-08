@@ -1,6 +1,6 @@
 {
   "fuso": "America/Sao_Paulo",
-  "gerado_em": "2026-09-08T14:32:09-03:00",
+  "gerado_em": "2026-09-08T17:10:52-03:00",
   "inicio": "2026-09-05T00:00:00-03:00",
   "fim": "2026-09-12T00:00:00-03:00",
   "banca_inicial": 500.0,
@@ -16,8 +16,8 @@
     "1h",
     "4h"
   ],
-  "ultima_vela": "2026-09-08T13:00:00-03:00",
-  "velas_no_periodo": 535,
+  "ultima_vela": "2026-09-08T16:00:00-03:00",
+  "velas_no_periodo": 555,
   "ranking": [
     {
       "trader": "estrutura(5/5)",
@@ -129,7 +129,7 @@
       "payoff": 1.080599111778862,
       "acerto_para_empatar": 0.4806307925148656,
       "media_por_operacao": -2.0306513424033183,
-      "em_aberto": 0,
+      "em_aberto": 1,
       "maior_queda": -0.031086149138343733,
       "recusadas": 10
     },
@@ -148,7 +148,7 @@
       "payoff": 1.673887087456244,
       "acerto_para_empatar": 0.37398737018148837,
       "media_por_operacao": -3.1979076916418188,
-      "em_aberto": 5,
+      "em_aberto": 6,
       "maior_queda": -0.05375442726450741,
       "recusadas": 9
     },
@@ -167,7 +167,7 @@
       "payoff": 1.0227810005673448,
       "acerto_para_empatar": 0.49436889100674886,
       "media_por_operacao": -4.223145630076941,
-      "em_aberto": 0,
+      "em_aberto": 1,
       "maior_queda": -0.05592806396269623,
       "recusadas": 7
     }
@@ -453,7 +453,17 @@
           "saldo": 487.81609194558007
         }
       ],
-      "abertas": [],
+      "abertas": [
+        {
+          "par": "XRP/USDT",
+          "timeframe": "4h",
+          "direcao": -1,
+          "entrada": "2026-09-08 13:00:00-03:00",
+          "preco_entrada": 1.4346,
+          "stop": 1.4571912352382574,
+          "alvo": 1.407575
+        }
+      ],
       "recusadas": {
         "teto de exposicao": 7,
         "pausa apos sequencia de perdas": 3
@@ -548,6 +558,15 @@
           "preco_entrada": 1.4177,
           "stop": 1.3948023422900024,
           "alvo": 1.4631953154199953
+        },
+        {
+          "par": "XRP/USDT",
+          "timeframe": "4h",
+          "direcao": 1,
+          "entrada": "2026-09-08 13:00:00-03:00",
+          "preco_entrada": 1.4346,
+          "stop": 1.384645188029368,
+          "alvo": 1.5342096239412641
         }
       ],
       "recusadas": {
@@ -598,7 +617,17 @@
           "saldo": 478.88427184961535
         }
       ],
-      "abertas": [],
+      "abertas": [
+        {
+          "par": "XRP/USDT",
+          "timeframe": "1h",
+          "direcao": 1,
+          "entrada": "2026-09-08 14:00:00-03:00",
+          "preco_entrada": 1.4359,
+          "stop": 1.4091025664586043,
+          "alvo": 1.4760961503120933
+        }
+      ],
       "recusadas": {
         "teto de exposicao": 4,
         "pausa apos sequencia de perdas": 3
