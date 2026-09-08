@@ -1,6 +1,6 @@
 CAMPANHA DE TESTE - dinheiro de mentira, mercado de verdade
-Periodo: 05/09/2026 ate 11/09/2026 | atualizado em 07/09 19:16 (horario de Brasilia)
-Ultima vela considerada: 07/09 18:00
+Periodo: 05/09/2026 ate 11/09/2026 | atualizado em 07/09 21:27 (horario de Brasilia)
+Ultima vela considerada: 07/09 20:00
 Cada trader comecou com R$ 500,00 e gerencia a propria banca com as mesmas regras: arrisca 2% por operacao, no maximo 3 operacoes ao mesmo tempo, e para o dia se perder 6%.
 Pares: BTC/USDT, ETH/USDT, SOL/USDT, BNB/USDT, XRP/USDT | graficos: 1h, 4h
 
@@ -19,7 +19,7 @@ Pares: BTC/USDT, ETH/USDT, SOL/USDT, BNB/USDT, XRP/USDT | graficos: 1h, 4h
  7o  momento(60,0.5sd)             R$ 487,24  (-R$ 12,76, -2,6%)
       2 operacoes: 0 ganhas, 2 perdidas | acerto 0% (entre 0% e 66%) | payoff: so perdas ate agora | media por operacao -R$ 6,38 | 5 em aberto | pior momento -2,6%
  8o  ema(21/55,evento)             R$ 484,20  (-R$ 15,80, -3,2%)
-      4 operacoes: 1 ganhas, 3 perdidas | acerto 25% (entre 5% e 70%) | payoff 0,94 | precisa acertar 51% para empatar | media por operacao -R$ 3,95 | 2 em aberto | pior momento -4,5%
+      4 operacoes: 1 ganhas, 3 perdidas | acerto 25% (entre 5% e 70%) | payoff 0,94 | precisa acertar 51% para empatar | media por operacao -R$ 3,95 | 3 em aberto | pior momento -4,5%
 
 AINDA E CEDO: nenhum trader passou de 30 operacoes fechadas (o maximo foi 5). Com poucas operacoes a ordem acima e sorte, nao habilidade. A campanha existe para acumular operacoes; a ordem so vale quando a amostra crescer.
 

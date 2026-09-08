@@ -1,6 +1,6 @@
 {
   "fuso": "America/Sao_Paulo",
-  "gerado_em": "2026-09-07T19:16:52-03:00",
+  "gerado_em": "2026-09-07T21:27:48-03:00",
   "inicio": "2026-09-05T00:00:00-03:00",
   "fim": "2026-09-12T00:00:00-03:00",
   "banca_inicial": 500.0,
@@ -16,8 +16,8 @@
     "1h",
     "4h"
   ],
-  "ultima_vela": "2026-09-07T18:00:00-03:00",
-  "velas_no_periodo": 415,
+  "ultima_vela": "2026-09-07T20:00:00-03:00",
+  "velas_no_periodo": 430,
   "ranking": [
     {
       "trader": "estrutura(5/5)",
@@ -167,7 +167,7 @@
       "payoff": 0.9438276934666068,
       "acerto_para_empatar": 0.5144488903831841,
       "media_por_operacao": -3.9507971364561802,
-      "em_aberto": 2,
+      "em_aberto": 3,
       "maior_queda": -0.04545492912704896,
       "recusadas": 1
     }
@@ -656,6 +656,15 @@
           "preco_entrada": 106.46,
           "stop": 102.80042106361978,
           "alvo": 111.92436840457034
+        },
+        {
+          "par": "BNB/USDT",
+          "timeframe": "1h",
+          "direcao": -1,
+          "entrada": "2026-09-07 19:00:00-03:00",
+          "preco_entrada": 739.3,
+          "stop": 747.228655177524,
+          "alvo": 727.4070172337139
         }
       ],
       "recusadas": {
