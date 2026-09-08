@@ -13,6 +13,7 @@ encurta a janela de dados em silencio, mudando as metricas sem aviso.
 """
 from __future__ import annotations
 
+import os
 import argparse
 import json
 import signal
@@ -836,21 +837,31 @@ def _quadros(args, provedor, armazenamento, nomes) -> dict:
 
 
 def comando_conjunto(args) -> int:
-    """Monta o conjunto de treino de um setup a partir do historico."""
+    """Monta o conjunto de treino - de um setup ou de todos - com as leituras de grafico."""
     from nucleo.aprendizado import conjunto as cj
+    from nucleo.aprendizado import leituras as lt
 
     provedor, armazenamento = _contexto(args)
-    quadros = _quadros(args, provedor, armazenamento, [args.estrategia])
+    nomes = list(REGISTRO) if args.estrategia == "todas" else [args.estrategia]
+    # A confluencia precisa dos sinais de TODOS os setups, e o aquecimento e o maior deles.
+    instancias = {n: construir(n) for n in REGISTRO}
+    quadros = _quadros(args, provedor, armazenamento, list(REGISTRO))
 
     total = cj.vazio()
     for par, quadro in quadros.items():
         if quadro.empty:
             continue
-        estrategia = construir(args.estrategia)
-        resultado = executar(quadro, estrategia.gerar_sinais(quadro), _custos(args), _config(args))
-        parte = cj.montar(quadro, estrategia, resultado.trades, par=par, timeframe=args.tf)
-        total = total.concatenar(parte)
-        print(f"  {par:<10} {len(parte):>5} exemplos")
+        sinais = {n: e.gerar_sinais(quadro) for n, e in instancias.items()}
+        tabela = pd.concat([lt.calcular(quadro, args.tf), lt.confluencia(sinais)], axis=1)
+        for nome in nomes:
+            estrategia = instancias[nome]
+            resultado = executar(quadro, sinais[nome], _custos(args), _config(args))
+            parte = cj.montar(
+                quadro, estrategia, resultado.trades, par=par, timeframe=args.tf,
+                leituras=tabela, com_setup=True,
+            )
+            total = total.concatenar(parte)
+            print(f"  {par:<10} {nome:<12} {len(parte):>5} exemplos")
 
     total = total.ordenar_por_tempo()
     if total.vazio:
@@ -858,8 +869,10 @@ def comando_conjunto(args) -> int:
 
     destino = args.saida or f"dados/conjuntos/{args.estrategia}_{args.tf}.csv"
     cj.salvar_csv(total, destino)
+    leituras = [c for c in total.entradas.columns if c.endswith("_a_favor")]
     print()
-    print(f"{len(total)} exemplos | {total.entradas.shape[1]} colunas | acerto base "
+    print(f"{len(total)} exemplos | {total.entradas.shape[1]} colunas ({len(leituras)} leituras "
+          f"direcionais) | {total.entradas['setup'].nunique()} setups | acerto base "
           f"{total.rotulos.venceu.mean():.1%}")
     print(f"gravado em {destino}")
     armazenamento.fechar()
@@ -872,15 +885,17 @@ def comando_conjunto(args) -> int:
 def comando_filtro(args) -> int:
     """Avalia o filtro de ML por walk-forward com controle embaralhado."""
     from nucleo.aprendizado import conjunto as cj
-    from nucleo.aprendizado.filtro import ConfigFiltro, FiltroML, avaliar_walkforward
+    from nucleo.aprendizado.filtro import ConfigFiltro, FiltroML, avaliar_walkforward, peneira
 
     conjunto = cj.ler_csv(args.conjunto)
     if conjunto.vazio:
         raise SystemExit(f"Conjunto vazio: {args.conjunto}")
-    config = ConfigFiltro(limiar=args.limiar)
+    config = ConfigFiltro(limiar=args.limiar, monotonico=not args.sem_monotonia)
+    setups = conjunto.entradas["setup"].nunique() if "setup" in conjunto.entradas.columns else 1
 
-    print(f"=== filtro | {len(conjunto)} exemplos | acerto base "
-          f"{conjunto.rotulos.venceu.mean():.1%} | limiar {args.limiar:.0%} ===")
+    print(f"=== filtro | {len(conjunto)} exemplos | {setups} setup(s) | acerto base "
+          f"{conjunto.rotulos.venceu.mean():.1%} | limiar {args.limiar:.0%} | "
+          f"monotonia {'ligada' if config.monotonico else 'DESLIGADA'} ===")
     print()
     relatorio = avaliar_walkforward(
         conjunto, config, meses_teste=args.meses_teste, minimo_treino=args.minimo_treino
@@ -901,7 +916,35 @@ def comando_filtro(args) -> int:
         print()
     print(relatorio.veredito())
 
+    calibracao = relatorio.calibracao()
+    if not calibracao.empty:
+        print()
+        print("=== CALIBRACAO (fora da amostra): o que o modelo disse x o que aconteceu ===")
+        mostrar = calibracao.copy()
+        mostrar["prob_media"] = mostrar["prob_media"].map("{:.0%}".format)
+        mostrar["acerto_real"] = mostrar["acerto_real"].map("{:.0%}".format)
+        print(mostrar.to_string(index=False))
+
+    primeiro_corte = relatorio.janelas[0].corte if relatorio.janelas else None
+    pen = peneira(conjunto, a_partir_de=primeiro_corte)
+    if not pen.empty:
+        print()
+        print(f"=== PENEIRA (fora da amostra, a partir de {primeiro_corte.date() if primeiro_corte else 'inicio'}): "
+              f"cada leitura sozinha, ordenada pelo efeito em R ===")
+        mostrar = pen.head(args.peneira).copy()
+        for c in ("acerto_baixo", "acerto_alto"):
+            mostrar[c] = mostrar[c].map("{:.0%}".format)
+        for c in ("r_baixo", "r_alto", "delta_r"):
+            mostrar[c] = mostrar[c].round(3)
+        print(mostrar.to_string(index=False))
+        print("(delta_r > 0: a leitura 'alta'/'a favor' rende mais em R; a peneira nao e o modelo, e o mapa)")
+
     destino = args.salvar
+    if not destino and args.todos:
+        from pathlib import Path
+
+        Path("modelos").mkdir(exist_ok=True)
+        destino = "modelos/todos.pkl"
     if not destino and args.setup:
         from pathlib import Path
 
@@ -981,11 +1024,18 @@ def comando_decidir(args) -> int:
 
     filtros = {}
     if args.filtros:
-        for estrategia in estrategias:
-            caminho = Path(args.filtros) / f"{decisao.nome_de_arquivo(estrategia.nome)}.pkl"
-            if caminho.exists():
-                filtros[estrategia.nome] = FiltroML.carregar(str(caminho))
-        print(f"filtros de ML carregados: {len(filtros)}")
+        unico = Path(args.filtros) / "todos.pkl"
+        if unico.exists():
+            # Modelo unico, com o setup como categoria: o mesmo para todos.
+            modelo = FiltroML.carregar(str(unico))
+            filtros = {estrategia.nome: modelo for estrategia in estrategias}
+            print("filtro de ML unico (todos os setups) carregado")
+        else:
+            for estrategia in estrategias:
+                caminho = Path(args.filtros) / f"{decisao.nome_de_arquivo(estrategia.nome)}.pkl"
+                if caminho.exists():
+                    filtros[estrategia.nome] = FiltroML.carregar(str(caminho))
+            print(f"filtros de ML carregados: {len(filtros)}")
 
     carteira = Carteira(RegrasCarteira(
         saldo_inicial=args.banca, risco_por_trade=args.risco, max_posicoes=args.max_posicoes,
@@ -1022,6 +1072,65 @@ def comando_decidir(args) -> int:
     armazenamento.fechar()
     return 0
 
+
+
+# --------------------------------------------------------------------- painel
+
+
+def comando_painel(args) -> int:
+    """Sobe a API e a tela em localhost. So leitura: nenhuma ordem, nenhum segredo."""
+    import threading
+    import webbrowser
+    from pathlib import Path
+
+    try:
+        import uvicorn
+    except ImportError:
+        raise SystemExit("Falta o servidor web. Rode:  pip install -r requirements.txt")
+
+    from nucleo import painel
+    from nucleo.campanha import ConfigCampanha
+    from nucleo.risco.carteira import RegrasCarteira
+
+    nomes = _nomes(args)
+    pares = _pares(args)
+    timeframes = [t.strip() for t in args.tfs.split(",") if t.strip()]
+    raiz = Path(__file__).resolve().parent
+    pasta_painel = raiz / "painel" / "dist"
+    tfs_campanha = tuple(t for t in ("1h", "4h") if t in timeframes) or tuple(timeframes)
+
+    fontes = painel.Fontes(
+        provedor=ProvedorCCXT(args.corretora),
+        fabrica_armazenamento=lambda: Armazenamento(args.banco),
+        setups={n: construir(n) for n in nomes},
+        descricoes=DESCRICOES,
+        apelidos={construir(n).nome: n for n in ESTRATEGIAS},
+        pares=pares,
+        timeframes=timeframes,
+        campanha=ConfigCampanha(
+            inicio=tempo.inicio_do_dia(args.inicio), fim=tempo.fim_do_dia(args.fim),
+            banca=args.banca, moeda=args.moeda, pares=tuple(pares), timeframes=tfs_campanha,
+        ),
+        regras=RegrasCarteira(saldo_inicial=args.banca, moeda=args.moeda),
+        usar_rede=not args.offline,
+        pasta_observacoes=raiz / "dados" / "observacoes",
+        pasta_campanha=raiz / "dados" / "campanha",
+        pasta_painel=pasta_painel,
+    )
+    app = painel.criar_app(fontes)
+
+    endereco = f"http://{args.host}:{args.porta}"
+    tela_pronta = (pasta_painel / "index.html").exists()
+    if not tela_pronta:
+        print("A tela ainda nao foi construida. Em outra janela, uma vez:")
+        print("  cd painel; npm install; npm run build")
+        print(f"Enquanto isso a API responde em {endereco}/api/docs")
+    print(f"painel em {endereco}   (Ctrl+C para parar)")
+    print("So leitura de mercado. Nenhuma ordem sera enviada.")
+    if tela_pronta and not args.sem_navegador:
+        threading.Timer(1.0, lambda: webbrowser.open(endereco)).start()
+    uvicorn.run(app, host=args.host, port=args.porta, log_level="warning")
+    return 0
 
 
 # ------------------------------------------------------------------- campanha
@@ -1208,7 +1317,8 @@ def montar_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("conjunto", help="monta o conjunto de treino de um setup")
     de_mercado(p)
-    p.add_argument("--estrategia", default="ema", choices=ESTRATEGIAS)
+    p.add_argument("--estrategia", default="todas", choices=ESTRATEGIAS + ("todas",),
+                   help="um setup, ou 'todas' para o modelo unico (padrao)")
     p.add_argument("--risco", type=float, default=0.02)
     p.add_argument("--saida", default=None, help="CSV de saida (padrao: dados/conjuntos/<setup>_<tf>.csv)")
     p.set_defaults(funcao=comando_conjunto)
@@ -1221,6 +1331,11 @@ def montar_parser() -> argparse.ArgumentParser:
     p.add_argument("--salvar", default=None, metavar="PKL", help="treina no conjunto todo e grava")
     p.add_argument("--setup", default=None, choices=ESTRATEGIAS,
                    help="grava o modelo em modelos/ com o nome que o decidir procura")
+    p.add_argument("--todos", action="store_true",
+                   help="grava o modelo unico em modelos/todos.pkl (o decidir usa para todos os setups)")
+    p.add_argument("--sem-monotonia", action="store_true", dest="sem_monotonia",
+                   help="desliga a restricao 'a favor nunca piora' (para comparar)")
+    p.add_argument("--peneira", type=int, default=20, help="quantas leituras mostrar na peneira")
     p.set_defaults(funcao=comando_filtro)
 
     p = sub.add_parser("carteira", help="banca compartilhada com regras e posicoes simultaneas")
@@ -1270,6 +1385,24 @@ def montar_parser() -> argparse.ArgumentParser:
     p.add_argument("--ordem-minima", type=float, default=6.0, dest="ordem_minima",
                    help="menor ordem que a corretora aceita, na moeda da banca (~1 USDT = R$ 6)")
     p.set_defaults(funcao=comando_campanha)
+
+    p = sub.add_parser("painel", help="tela em localhost: campanha, sinais de agora, grafico e setups")
+    p.add_argument("--banco", default=None)
+    p.add_argument("--corretora", default=None)
+    p.add_argument("--host", default="127.0.0.1")
+    p.add_argument("--porta", type=int, default=8765)
+    p.add_argument("--pares", default="BTC/USDT,ETH/USDT,SOL/USDT,BNB/USDT,XRP/USDT")
+    p.add_argument("--tfs", default="1h,4h")
+    p.add_argument("--estrategias", default="todas")
+    p.add_argument("--inicio", default=os.getenv("CAMPANHA_INICIO", "2026-09-05"),
+                   help="inicio da campanha, AAAA-MM-DD no seu fuso")
+    p.add_argument("--fim", default=os.getenv("CAMPANHA_FIM", "2026-09-11"),
+                   help="ultimo dia da campanha, incluso")
+    p.add_argument("--banca", type=float, default=float(os.getenv("CAMPANHA_BANCA", "500")))
+    p.add_argument("--moeda", default=os.getenv("CAMPANHA_MOEDA", "BRL"))
+    p.add_argument("--offline", action="store_true", help="nao busca velas novas na corretora")
+    p.add_argument("--sem-navegador", action="store_true", dest="sem_navegador")
+    p.set_defaults(funcao=comando_painel)
 
     p = sub.add_parser("simular", help="quanto uma banca vira em cada setup")
     p.add_argument("--banco", default=None)

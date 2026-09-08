@@ -1,13 +1,14 @@
 name: Coleta de mercado
 
-# Roda sozinho a cada 5 minutos - o intervalo minimo que o GitHub aceita.
-# O disparo e por ordem de chegada: quando a fila esta cheia, ele atrasa alguns
-# minutos. Nao e problema aqui, porque cada execucao busca a ultima vela
-# fechada e o arquivo ignora o que ja foi gravado; atraso vira, no maximo,
-# algumas velas coletadas juntas depois.
+# DESLIGADO em 08/09/2026: a fase de teste na nuvem encerrou. O agendamento
+# (cron a cada 5 minutos) e o passo da campanha foram retirados. O que fica e
+# o disparo MANUAL da coleta, pela aba Actions, para quando for util juntar
+# mais velas e sinais ao historico em dados/observacoes.
+#
+# Para religar a coleta automatica, devolva o bloco:
+#   schedule:
+#     - cron: "*/5 * * * *"
 on:
-  schedule:
-    - cron: "*/5 * * * *"
   workflow_dispatch:
     inputs:
       pares:
@@ -17,16 +18,9 @@ on:
         description: "Timeframes (o agendador nao alcanca 1m)"
         default: "5m,15m,1h,4h"
 
-# A campanha de teste: cada setup gerencia uma banca de mentira no mercado de
-# verdade, de INICIO ate FIM (ultimo dia incluso). Refeita do zero a cada
-# execucao a partir das velas reais, entao nao ha estado para se perder.
 env:
-  CAMPANHA_INICIO: "2026-09-05"
-  CAMPANHA_FIM: "2026-09-11"
-  CAMPANHA_BANCA: "500"
-  CAMPANHA_MOEDA: "BRL"
-  # As datas acima e os horarios do relatorio sao neste fuso. O processo
-  # continua em UTC (TZ=UTC nos passos): quem converte e o codigo.
+  # Os horarios sao neste fuso. O processo continua em UTC (TZ=UTC nos
+  # passos): quem converte e o codigo.
   FUSO_HORARIO: "America/Sao_Paulo"
 
 # Impede duas execucoes gravando no mesmo arquivo ao mesmo tempo, o que daria
@@ -81,27 +75,11 @@ jobs:
             --jsonl dados/observacoes \
             --banco "$BANCO_DADOS"
 
-      - name: Campanha de teste
-        # Nao derruba a execucao: a coleta acima ja gravou e precisa ser
-        # commitada mesmo que a campanha falhe por um dado fora do lugar.
-        continue-on-error: true
-        env:
-          TZ: UTC
-          EXCHANGE: okx
-          BANCO_DADOS: ${{ runner.temp }}/efemero.db
-        run: |
-          python cli.py campanha \
-            --inicio "$CAMPANHA_INICIO" --fim "$CAMPANHA_FIM" \
-            --banca "$CAMPANHA_BANCA" --moeda "$CAMPANHA_MOEDA" \
-            --tfs 1h,4h --estrategias todas \
-            --salvar-em dados/campanha \
-            --banco "$BANCO_DADOS"
-
       - name: Gravar no repositorio
         run: |
           git config user.name  "coletor-de-mercado"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add dados/observacoes dados/campanha
+          git add dados/observacoes
 
           if git diff --cached --quiet; then
             echo "Nenhuma vela nova fechou desde a ultima execucao."

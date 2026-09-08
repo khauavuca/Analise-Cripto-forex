@@ -1,0 +1,110 @@
+@import "tailwindcss";
+
+/* Mesa de operacoes: um unico mundo visual, escuro e frio, como a tela de
+   um terminal. Neutros puxados para o azul-aco; verde e vermelho de mesa;
+   ambar so para o que pede atencao; azul-gelo para o que e interativo. */
+@theme {
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+
+  --color-fundo: #07090d;
+  --color-painel: #0b0f15;
+  --color-painel-2: #10161f;
+  --color-painel-3: #161e29;
+  --color-borda: #1b2330;
+  --color-borda-2: #29343f;
+  --color-texto: #d9dfe7;
+  --color-texto-2: #8a95a6;
+  --color-texto-3: #59647a;
+  --color-alta: #19c37d;
+  --color-alta-2: #0a2e22;
+  --color-baixa: #f0435a;
+  --color-baixa-2: #3a1118;
+  --color-atencao: #f5b83d;
+  --color-atencao-2: #3a2a0c;
+  --color-info: #4d8dff;
+  --color-info-2: #0f1f3d;
+  --color-acento: #4d8dff;
+
+  --radius-term: 2px;
+}
+
+html,
+body,
+#raiz {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-fundo);
+  color: var(--color-texto);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-texto-3);
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+:focus-visible {
+  outline: 1px solid var(--color-acento);
+  outline-offset: 1px;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+}
+
+@keyframes pulso {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.pulsar {
+  animation: pulso 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #1f2937;
+  border: 2px solid var(--color-fundo);
+}

@@ -233,19 +233,48 @@ ocupa o lugar do filtro — o resto já existe e já está medido.
 | Peça | Comando | O que faz |
 |---|---|---|
 | **Conjunto de treino** | `cli.py conjunto` | Junta o que o sistema via na barra do sinal com o que aconteceu depois. Níveis de preço viram distância relativa; a barra é a do **sinal**, não a da entrada. |
-| **Filtro de ML** | `cli.py filtro` | Aprende, entre os sinais de um setup, quais tendem a vencer. Treinado por walk-forward com purga e comparado a um controle de rótulos embaralhados. |
+| **Leituras de gráfico** | `nucleo/aprendizado/leituras.py` | A literatura traduzida em colunas com procedência: estrutura, tendência nas várias escalas, momento, volatilidade, volume, localização, vela e confluência entre setups. Causais, adimensionais e relativas à direção do sinal. |
+| **Filtro de ML** | `cli.py filtro` | Um modelo para todos os setups (o setup é categoria), com restrição de monotonia nas leituras universais. Walk-forward com purga, controle de rótulos embaralhados, calibração e peneira. |
 | **Carteira** | `cli.py carteira` | Banca compartilhada com posições simultâneas, teto de exposição, perda diária máxima e pausa após sequência de perdas. |
 | **Decisão** | `cli.py decidir` | Varre pares × setups, aplica as regras da carteira (e o filtro, se aprovado) e emite recomendação estruturada — tabela ou JSON. Nenhuma ordem é enviada. |
 
 O que cada peça mostrou ao ser medida:
 
-- **O filtro é honesto sobre si mesmo.** Em 10 pares desde 2022 (OKX): `ema`
-  0,518 e `compressao` 0,510 de AUC fora da amostra — moeda ao ar, veredito
-  *não usar*. `confluencia` tem o maior AUC (0,580) e mesmo assim é reprovado,
-  porque o R acumulado cai e o controle embaralhado cai igual — ranquear bem
-  não é a mesma coisa que ganhar dinheiro. Só o `donchian` (0,556, R de +468
-  para +594 mantendo 29% dos trades) fica acima do controle: hipótese, não
-  resultado.
+- **A primeira versão do filtro não tinha o que aprender.** Um modelo por
+  setup, só com os indicadores do próprio setup: `ema` 0,518 e `compressao`
+  0,510 de AUC fora da amostra — moeda ao ar. A coluna "mais importante" era o
+  dia da semana, que é o retrato do ruído.
+- **A segunda versão lê o gráfico.** Um modelo único para os 8 setups, com as
+  leituras de gráfico do catálogo e a restrição de monotonia. No 4h, 5 pares,
+  2 anos (4.091 sinais, acerto base 36%), em seis janelas de quatro meses que
+  **não se sobrepõem**: AUC 0,616 fora da amostra, R acumulado de −149 sem
+  filtro para **+30 com filtro** mantendo 18% dos sinais, expectância por sinal
+  de −0,043 R para +0,049 R. A régua que importa é outra: cortar 82% de um
+  conjunto perdedor melhora o total sozinho, então o relatório mede quanto o
+  filtro rende **além de uma seleção aleatória do mesmo tamanho**: +49 R, contra
+  +7,6 R do controle com rótulos embaralhados, e acima do acaso em 6 das 6
+  janelas. Sem a monotonia o resultado é parecido: a restrição não custa nada e
+  mantém a lógica do gráfico.
+- **No 1h ele filtra, mas não sobra dinheiro.** Com dois anos de 1h (14.232
+  sinais): AUC 0,579, +111 R acima do acaso contra +7 R do controle, 5 de 6
+  janelas. Só que a expectância vai de −0,078 R para −0,005 R: o filtro tira o
+  pior, e mesmo assim o 1h empata com os custos. Continua fora.
+- **A calibração ainda mente para cima.** Na faixa mais alta o modelo diz 59% e
+  acontecem 48%. Um 48% com payoff 1,5 ganha dinheiro, mas o número na tela não
+  pode ser o cru — calibrar é o próximo passo antes de mostrar probabilidade.
+- **A peneira diz o que vale neste mercado**, fora da amostra, leitura por
+  leitura. A favor do que a literatura diz: tendência por médias (contra 25% de
+  acerto e −0,18 R; a favor 44% e +0,06 R), força de tendência (ADX), MACD, vela
+  e sequência a favor, gráfico maior a favor (+0,11 R), regime de volatilidade
+  alto. Contra a literatura: **estrutura de topos e fundos ascendentes piora**
+  (−0,09 R a favor), comprar no alto do range de 50 barras piora, volume não
+  muda nada, e alvo grande em relação ao stop perde mais. O modelo, preso pela
+  monotonia, só pode ignorar a estrutura — é o que ele faz.
+- **Uma armadilha que o próprio relatório tinha.** A primeira medição testava
+  cada corte "até o fim dos dados": seis janelas que eram, na prática, a mesma
+  contada seis vezes, e um controle embaralhado que parecia tão bom quanto o
+  real por puro acúmulo de ruído. Foi corrigido antes de qualquer número entrar
+  aqui. Fica registrado porque é o tipo de erro que faz filtro ruim parecer bom.
 - **As regras da carteira trocam retorno por sobrevivência.** Os três setups
   positivos em 90 dias, 10 pares: com regras, +50,2% com pior momento de −23,6%;
   **sem regras, +72,2% com pior momento de −53,2%**. Metade da queda por um
@@ -257,13 +286,25 @@ O que cada peça mostrou ao ser medida:
   uma vela por vez e compara: sinais e dinheiro batem. O motor não espia o
   futuro, e isso deixa de ser afirmação para ser teste.
 
-Fluxo típico, uma vez por setup:
+Fluxo típico, com todos os setups num modelo só:
 
 ```bash
-python cli.py conjunto --estrategia donchian --desde 2022-01-01
-python cli.py filtro --conjunto dados/conjuntos/donchian_4h.csv --setup donchian
-python cli.py decidir --estrategias donchian,confluencia --filtros modelos
+python cli.py conjunto --estrategia todas --tf 4h --desde 2024-09-01
+python cli.py filtro --conjunto dados/conjuntos/todas_4h.csv --meses-teste 4 --minimo-treino 200 --todos
+python cli.py decidir --estrategias todas --filtros modelos
 ```
+
+`--todos` grava `modelos/todos.pkl`, que o `decidir` usa para todos os setups.
+Rode o `decidir` com todos os setups: a confluência conta os setups da
+varredura, e precisa bater com o treino. Toda recomendação sai com as leituras
+do instante em português ("tendência a favor; gráfico maior contra; confluência
+neutra"), com ou sem filtro.
+
+Os critérios para o filtro entrar na campanha como trader "setup + filtro",
+ao lado do cru: melhora em pelo menos 60% das janelas, controle embaralhado
+abaixo do real, as mesmas leituras importantes em todas as janelas, calibração
+que bata e melhora também em par que ele nunca viu. Hoje passa nos dois
+primeiros; os outros três ainda não foram medidos.
 
 `--setup` grava o modelo em `modelos/` com o nome que o `decidir` procura
 depois (o nome do setup com parâmetros, ajustado para ser nome de arquivo
@@ -279,8 +320,14 @@ claro, quem está ganhando:
 python cli.py campanha --inicio 2026-09-05 --fim 2026-09-11 --banca 500 --moeda BRL --tfs 1h,4h --salvar-em dados/campanha
 ```
 
-Ela roda na nuvem junto com a coleta e o relatório fica em
-`dados/campanha/relatorio.md`, atualizado a cada execução.
+Ela rodou na nuvem junto com a coleta, com o relatório em
+`dados/campanha/relatorio.md`. **A fase de teste na nuvem foi encerrada em
+08/09/2026**: o agendamento do GitHub Actions e o passo da campanha foram
+retirados do workflow, que ficou só com o disparo manual da coleta. Os sinais
+coletados ao vivo (5m, 15m, 1h e 4h, de 04/09 a 08/09) ficam em
+`dados/observacoes` e continuam servindo ao `rastrear` e ao painel. A campanha
+segue existindo como comando e como tela, calculada localmente a partir das
+velas do banco.
 
 As datas de `--inicio`/`--fim` e todos os horários do relatório são no
 **horário de Brasília** (`FUSO_HORARIO`, padrão `America/Sao_Paulo`). Por
@@ -312,6 +359,42 @@ O relatório avisa sozinho quando é cedo: abaixo de 30 operações fechadas, a
 ordem dos traders é sorte, não habilidade. Uma semana no 4h raramente passa
 disso — a campanha é o sistema inteiro com contabilidade de verdade, não um
 veredito.
+
+### O painel (tela em localhost)
+
+`python cli.py painel` sobe uma tela em `http://127.0.0.1:8765` com quatro
+vistas — **Visão geral** (a campanha: ranking, curva de banca de cada trader,
+posições abertas, últimas operações), **Agora** (o que o sistema faria na
+última vela fechada, com ordem dimensionada e o motivo de cada recusa),
+**Gráfico** (velas com as linhas que o setup enxerga, os sinais e o stop/alvo
+do último) e **Setups** (o acerto medido ao vivo com os sinais coletados pela
+nuvem) — mais uma página **Como ler**, para quem não é do ramo.
+
+A regra que sustenta a tela é a mesma da linha de comando: **a API chama o
+mesmo código que `campanha`, `decidir`, `rastrear` e `analisar`**
+(`nucleo/painel.py`). Se a tela e o terminal discordassem, um dos dois
+estaria mentindo. Nenhuma rota escreve nada além do cache de velas que o
+carregador já mantinha, e nenhuma envia ordem.
+
+Para rodar, uma vez:
+
+```bash
+pip install -r requirements.txt
+cd painel; npm install; npm run build; cd ..
+```
+
+Depois, sempre:
+
+```bash
+python cli.py painel
+```
+
+Ele abre o navegador sozinho. `--offline` usa só o que está no banco;
+`--porta`, `--banca`, `--inicio` e `--fim` seguem os mesmos padrões da
+campanha (variáveis `CAMPANHA_*`). A tela é React + Vite + Tailwind, com
+[Lightweight Charts](https://tradingview.github.io/lightweight-charts/) para as
+velas; o código fica em `painel/` e o build em `painel/dist/`, fora do
+repositório.
 
 ### Decisões que sustentam o número
 

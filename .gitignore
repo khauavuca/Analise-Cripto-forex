@@ -36,3 +36,10 @@ encryption_key.key
 # artefatos regeneraveis a partir do historico (nao versionar)
 modelos/
 dados/conjuntos/
+
+# painel: dependencias e build ficam fora do repositorio
+painel/node_modules/
+painel/dist/
+*.db-shm
+*.db-wal
+painel/tsconfig.tsbuildinfo

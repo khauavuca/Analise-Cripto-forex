@@ -149,16 +149,28 @@ def caracteristicas_no_instante(
     forca: float,
     stop: float,
     alvo: float,
+    leituras: pd.DataFrame | None = None,
+    setup: str | None = None,
 ) -> dict:
     """A linha de entrada do modelo para UM sinal, na barra em que ele nasceu.
 
     E a mesma funcao usada para montar o treino e para pontuar um sinal ao
     vivo. Duas implementacoes divergiriam com o tempo, e o modelo passaria a
     ver em producao colunas diferentes das que aprendeu.
+
+    `leituras` sao as leituras de grafico (`leituras.calcular` + `confluencia`)
+    ja calculadas para o quadro; entram relativas a direcao do sinal. `setup`
+    e o nome do setup, que o modelo unico usa como categoria.
     """
+    from . import leituras as mod_leituras
+
     x = {}
     x.update(painel_normalizado.iloc[posicao].to_dict())
     x.update(contexto.iloc[posicao].to_dict())
+    if leituras is not None:
+        x.update(mod_leituras.no_instante(leituras, posicao, int(direcao)))
+    if setup is not None:
+        x["setup"] = setup
     x["direcao"] = int(direcao)
     x["forca"] = 0.0 if pd.isna(forca) else float(forca)
     x["dist_stop_pct"] = abs(fechamento - float(stop)) / fechamento
@@ -176,8 +188,15 @@ def montar(
     par: str = "",
     timeframe: str = "",
     atraso_barras: int = 1,
+    leituras: pd.DataFrame | None = None,
+    com_setup: bool = False,
 ) -> Conjunto:
-    """Um exemplo por trade fechado, com o que o sistema via no sinal."""
+    """Um exemplo por trade fechado, com o que o sistema via no sinal.
+
+    `leituras` (opcional) sao as leituras de grafico do quadro, incluindo a
+    confluencia; `com_setup` grava o nome do setup como coluna, para o modelo
+    unico que aprende todos os setups de uma vez.
+    """
     if trades is None or trades.empty:
         return vazio()
 
@@ -202,6 +221,7 @@ def montar(
             caracteristicas_no_instante(
                 painel, contexto, float(quadro["fechamento"].iloc[pos_sinal]), pos_sinal,
                 trade.direcao, trade.forca, trade.stop, trade.alvo,
+                leituras=leituras, setup=estrategia.nome if com_setup else None,
             )
         )
 
@@ -272,6 +292,8 @@ def ler_csv(caminho: str) -> Conjunto:
         quadro[coluna] = pd.to_datetime(quadro[coluna], utc=True, format="mixed")
     quadro["venceu"] = quadro["venceu"].astype(bool)
     entradas = quadro.drop(columns=COLUNAS_META + COLUNAS_ROTULO)
+    if "setup" in entradas.columns:
+        entradas["setup"] = entradas["setup"].astype(str)
     return Conjunto(entradas, quadro[COLUNAS_ROTULO].copy(), quadro[COLUNAS_META].copy())
 
 

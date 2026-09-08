@@ -5,19 +5,25 @@ regras da carteira; o filtro de ML, quando existe e foi aprovado, so veta. A
 saida e estruturada de proposito - tabela para gente, JSON para maquina -, para
 que trocar quem decide nao mude quem consome.
 
+Toda recomendacao sai com as leituras de grafico do instante ("estrutura a
+favor, grafico maior contra, confluencia neutra"): sao as mesmas colunas que
+o filtro ve, calculadas pela mesma funcao do treino. Com ou sem filtro, e a
+explicacao em portugues de como o sistema leu o grafico naquela vela.
+
 Nada aqui envia ordem. A recomendacao e um registro do que o sistema faria;
 executar e decisao de quem opera.
 """
 from __future__ import annotations
 
 import copy
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
 
 import numpy as np
 import pandas as pd
 
 from . import tempo
+from .aprendizado import leituras as mod_leituras
 from .aprendizado.conjunto import (
     caracteristicas_no_instante,
     contexto_de_mercado,
@@ -60,15 +66,30 @@ class Recomendacao:
     valor_ordem: float = 0.0
     risco_moeda: float = 0.0
     probabilidade: float | None = None
+    leituras: list[str] = field(default_factory=list)
 
     @property
     def lado(self) -> str:
         return "COMPRA" if self.direcao > 0 else "VENDA"
 
 
-def _candidatos(quadro: pd.DataFrame, estrategia: Estrategia, par: str, timeframe: str,
-                filtro=None) -> list[Recomendacao]:
-    sinais = estrategia.gerar_sinais(quadro)
+def leituras_do_quadro(quadro: pd.DataFrame, timeframe: str, sinais_por_setup: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    """Leituras de grafico + confluencia, uma vez por par/timeframe."""
+    return pd.concat(
+        [mod_leituras.calcular(quadro, timeframe), mod_leituras.confluencia(sinais_por_setup)], axis=1
+    )
+
+
+def _candidatos(
+    quadro: pd.DataFrame,
+    estrategia: Estrategia,
+    par: str,
+    timeframe: str,
+    filtro=None,
+    sinais: pd.DataFrame | None = None,
+    leituras: pd.DataFrame | None = None,
+) -> list[Recomendacao]:
+    sinais = estrategia.gerar_sinais(quadro) if sinais is None else sinais
     ultimo = sinais.iloc[-1]
     if int(ultimo.direcao) == 0 or pd.isna(ultimo.stop) or pd.isna(ultimo.alvo):
         return []
@@ -82,17 +103,21 @@ def _candidatos(quadro: pd.DataFrame, estrategia: Estrategia, par: str, timefram
         decisao=ENTRAR,
     )
 
-    if filtro is not None and filtro.treinado:
+    usa_filtro = filtro is not None and filtro.treinado
+    if leituras is not None or usa_filtro:
         painel = normalizar_painel(estrategia.painel_indicadores(quadro), quadro["fechamento"])
         contexto = contexto_de_mercado(quadro)
         x = caracteristicas_no_instante(
             painel, contexto, preco, len(quadro) - 1,
             rec.direcao, rec.forca, rec.stop, rec.alvo,
+            leituras=leituras, setup=estrategia.nome,
         )
-        rec.probabilidade = float(filtro.probabilidade(pd.DataFrame([x]))[0])
-        if rec.probabilidade < filtro.config.limiar:
-            rec.decisao = RECUSADA
-            rec.motivo_recusa = f"filtro ml ({rec.probabilidade:.0%} < {filtro.config.limiar:.0%})"
+        rec.leituras = mod_leituras.descrever(x)
+        if usa_filtro:
+            rec.probabilidade = float(filtro.probabilidade(pd.DataFrame([x]))[0])
+            if rec.probabilidade < filtro.config.limiar:
+                rec.decisao = RECUSADA
+                rec.motivo_recusa = f"filtro ml ({rec.probabilidade:.0%} < {filtro.config.limiar:.0%})"
     return [rec]
 
 
@@ -111,6 +136,9 @@ def varrer(
     Os candidatos sao avaliados em ordem de forca, numa COPIA da carteira, para
     que o segundo sinal veja o primeiro ja posicionado - se cinco disparam e o
     teto e tres, entram os tres mais fortes e os outros ficam com o motivo.
+
+    A confluencia conta os setups desta varredura: para bater com o treino do
+    modelo unico, rode com todos os setups.
     """
     filtros = filtros or {}
     aquecimento = max(e.barras_de_aquecimento() for e in estrategias)
@@ -127,9 +155,14 @@ def varrer(
             )
             if quadro.empty:
                 continue
+            sinais = {e.nome: e.gerar_sinais(quadro) for e in estrategias}
+            leituras = leituras_do_quadro(quadro, timeframe, sinais)
             for estrategia in estrategias:
                 candidatos.extend(
-                    _candidatos(quadro, estrategia, par, timeframe, filtros.get(estrategia.nome))
+                    _candidatos(
+                        quadro, estrategia, par, timeframe, filtros.get(estrategia.nome),
+                        sinais=sinais[estrategia.nome], leituras=leituras,
+                    )
                 )
 
     candidatos.sort(key=lambda r: (r.decisao != ENTRAR, -r.forca))
@@ -168,6 +201,7 @@ def tabela(recomendacoes: list[Recomendacao]) -> pd.DataFrame:
                 "ordem": round(r.valor_ordem, 2) if r.decisao == ENTRAR else "",
                 "risco": round(r.risco_moeda, 2) if r.decisao == ENTRAR else "",
                 "decisao": r.decisao if r.decisao == ENTRAR else f"{RECUSADA}: {r.motivo_recusa}",
+                "leituras": "; ".join(r.leituras),
             }
         )
     return pd.DataFrame(linhas)

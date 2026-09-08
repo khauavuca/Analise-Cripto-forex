@@ -159,3 +159,111 @@ class TestFiltro:
         carregado = FiltroML.carregar(str(caminho))
         original = filtro.probabilidade(conjunto.entradas.head(10))
         assert carregado.probabilidade(conjunto.entradas.head(10)) == pytest.approx(original)
+
+
+def _conjunto_com_leituras(n: int = 1200, semente: int = 9) -> cj.Conjunto:
+    """Dois setups, uma leitura monotona que ajuda de verdade e uma que atrapalha.
+
+    `confluencia_a_favor` tem efeito positivo real. `armadilha_a_favor` e
+    construida com efeito NEGATIVO, mas esta na lista das monotonas: o modelo
+    e obrigado a nao usa-la contra a logica do grafico.
+    """
+    gerador = np.random.default_rng(semente)
+    confluencia = gerador.integers(-3, 4, n).astype(float)
+    tendencia = gerador.integers(-1, 2, n).astype(float)
+    ruido = gerador.normal(size=n)
+    setup = np.where(gerador.random(n) < 0.5, "a", "b")
+    # O setup "b" e melhor que o "a"; a confluencia ajuda os dois; a tendencia
+    # maior "a favor" atrapalha DE PROPOSITO neste mundo sintetico.
+    logit = 0.6 * confluencia - 0.8 * tendencia + np.where(setup == "b", 0.8, -0.4) + 0.2 * ruido
+    p = 1 / (1 + np.exp(-logit))
+    venceu = gerador.random(n) < p
+    r = np.where(venceu, gerador.uniform(0.5, 2.5, n), -1.0)
+    entradas = pd.date_range("2023-01-01", periods=n, freq="14h", tz="UTC")
+    x = pd.DataFrame(
+        {
+            "confluencia_a_favor": confluencia,
+            "tendencia_maior_a_favor": tendencia,
+            "ruido": ruido,
+            "hora": entradas.hour,
+            "dia_semana": entradas.dayofweek,
+            "setup": setup,
+        }
+    )
+    meta = pd.DataFrame(
+        {
+            "entrada": entradas, "saida": entradas + pd.Timedelta(hours=20),
+            "par": "X", "timeframe": "4h", "estrategia": setup, "motivo_saida": "ALVO",
+        }
+    )
+    rot = pd.DataFrame({"venceu": venceu, "multiplo_r": r, "retorno_liquido_pct": r * 0.01})
+    return cj.Conjunto(x, rot, meta)
+
+
+class TestModeloUnico:
+    def test_setup_vira_categoria_e_hora_fica_de_fora(self):
+        conjunto = _conjunto_com_leituras()
+        filtro = FiltroML().treinar(conjunto)
+        assert "setup" in filtro.colunas and filtro.categorias == {"a": 0, "b": 1}
+        assert "hora" not in filtro.colunas and "dia_semana" not in filtro.colunas
+        # O setup melhor recebe probabilidade maior, tudo o mais igual.
+        base = conjunto.entradas.head(1).copy()
+        base[["confluencia_a_favor", "tendencia_maior_a_favor", "ruido"]] = [0.0, 0.0, 0.0]
+        a, b = base.copy(), base.copy()
+        a["setup"], b["setup"] = "a", "b"
+        assert filtro.probabilidade(b)[0] > filtro.probabilidade(a)[0]
+        # Setup desconhecido nao quebra: vira categoria ausente.
+        desconhecido = base.copy()
+        desconhecido["setup"] = "zzz"
+        assert 0 <= filtro.probabilidade(desconhecido)[0] <= 1
+
+    def test_monotonia_nao_deixa_inverter_a_logica_do_grafico(self):
+        conjunto = _conjunto_com_leituras()
+        filtro = FiltroML(ConfigFiltro(monotonico=True)).treinar(conjunto)
+        base = conjunto.entradas.head(1).copy()
+        base[["confluencia_a_favor", "ruido"]] = [0.0, 0.0]
+        base["setup"] = "a"
+        grade = pd.concat([base.assign(tendencia_maior_a_favor=v) for v in (-1.0, 0.0, 1.0)], ignore_index=True)
+        prob = filtro.probabilidade(grade)
+        # Nos dados a tendencia maior "a favor" atrapalha; com a restricao o
+        # modelo pode no maximo ignora-la, nunca usa-la ao contrario.
+        assert prob[0] <= prob[1] + 1e-9 <= prob[2] + 2e-9
+        # A confluencia, que ajuda de verdade, continua sendo usada.
+        grade = pd.concat([base.assign(confluencia_a_favor=v) for v in (-3.0, 0.0, 3.0)], ignore_index=True)
+        prob = filtro.probabilidade(grade)
+        assert prob[2] > prob[0] + 0.1
+
+    def test_sem_monotonia_o_modelo_aprende_a_armadilha(self):
+        conjunto = _conjunto_com_leituras()
+        filtro = FiltroML(ConfigFiltro(monotonico=False)).treinar(conjunto)
+        base = conjunto.entradas.head(1).copy()
+        base[["confluencia_a_favor", "ruido"]] = [0.0, 0.0]
+        base["setup"] = "a"
+        grade = pd.concat([base.assign(tendencia_maior_a_favor=v) for v in (-1.0, 1.0)], ignore_index=True)
+        prob = filtro.probabilidade(grade)
+        assert prob[0] > prob[1], "sem a restricao ele segue o dado, mesmo contra a logica"
+
+
+class TestRelatorios:
+    def test_calibracao_e_peneira(self):
+        from nucleo.aprendizado.filtro import calibracao, peneira
+
+        conjunto = _conjunto_com_leituras()
+        relatorio = avaliar_walkforward(conjunto, ConfigFiltro(), meses_teste=4, minimo_treino=150)
+        cal = relatorio.calibracao()
+        assert list(cal.columns) == ["faixa", "n", "prob_media", "acerto_real"]
+        assert cal["n"].sum() == sum(j.n_teste for j in relatorio.janelas)
+        # Calibrado: na faixa mais alta ganha-se mais do que na mais baixa.
+        assert cal["acerto_real"].iloc[-1] > cal["acerto_real"].iloc[0]
+        assert "melhorou o total" in relatorio.veredito()
+
+        pen = peneira(conjunto, a_partir_de=relatorio.janelas[0].corte)
+        assert {"leitura", "comparacao", "delta_r"} <= set(pen.columns)
+        assert "hora" not in pen["leitura"].tolist()
+        por_leitura = pen.set_index("leitura")
+        assert por_leitura.loc["confluencia_a_favor", "delta_r"] > 0
+        assert por_leitura.loc["tendencia_maior_a_favor", "delta_r"] < 0
+        assert por_leitura.loc["confluencia_a_favor", "comparacao"] == "contra -> a favor"
+
+        vazio = calibracao(np.array([]), np.array([]))
+        assert vazio.empty
